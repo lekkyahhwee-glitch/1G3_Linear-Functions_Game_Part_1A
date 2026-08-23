@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LIVE BATTLE Part 1 — #LinearShowdown</title>
+<title>LIVE BATTLE Part 1A — #LinearShowdown</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -53,6 +53,16 @@
     color:var(--paper-on-dark); cursor:pointer; font-size:0.9rem; opacity:0.6; display:flex; align-items:center; justify-content:center;
   }
   .hud-reset-btn:hover{ opacity:1; border-color:var(--coral); }
+
+  /* ---------- custom confirm modal (replaces browser confirm(), blocked in sandboxed embeds) ---------- */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:600; padding:6vw; }
+  .modal-overlay.show{ display:flex; }
+  .modal-card{ background:var(--ink-soft); border:1px solid var(--line-dark); border-radius:14px; padding:1.6rem 1.5rem; max-width:360px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+  .modal-card h3{ font-family:var(--font-display); font-size:1.05rem; margin-bottom:0.6rem; }
+  .modal-card p{ font-size:0.88rem; line-height:1.5; opacity:0.85; margin-bottom:1.2rem; }
+  .modal-actions{ display:flex; gap:0.7rem; justify-content:flex-end; }
+  .modal-btn{ padding:0.6rem 1.1rem; border-radius:8px; font-size:0.86rem; font-weight:600; cursor:pointer; border:1px solid var(--line-dark); background:transparent; color:var(--paper-on-dark); font-family:var(--font-body); }
+  .modal-btn.danger{ background:var(--coral); border-color:var(--coral); color:#fff; }
   .score-tally{ font-family:var(--font-mono); font-size:0.78rem; flex-shrink:0; white-space:nowrap; }
   .score-tally .you{ color:var(--mint); font-weight:700; }
   .score-tally .rival{ color:var(--coral); font-weight:700; }
@@ -319,16 +329,27 @@
   <button class="hud-reset-btn" id="hudResetBtn" title="Reset progress" onclick="resetGameProgress()">⟲</button>
 </div>
 
+<div class="modal-overlay" id="resetModal">
+  <div class="modal-card">
+    <h3>Reset your progress?</h3>
+    <p>This clears your match progress and starts over. This can't be undone.</p>
+    <div class="modal-actions">
+      <button class="modal-btn" id="resetCancelBtn">Cancel</button>
+      <button class="modal-btn danger" id="resetConfirmBtn">Reset</button>
+    </div>
+  </div>
+</div>
+
 <div class="wrap">
 
   <!-- INTRO -->
   <section class="screen active" id="scr-intro">
-    <div class="eyebrow">#LinearShowdown · Part 1 · 4 rounds</div>
+    <div class="eyebrow">#LinearShowdown · Part 1A · 5 rounds</div>
     <h1>YOU'RE GOING LIVE</h1>
     <p class="lede">Your account just went live for the weekly maths showdown — and <strong>Team Vertex</strong> jumped on to battle you head-to-head, live, in front of everyone.</p>
     <div class="story-box">
       <span class="story-tag">How it works</span>
-      5 rounds, plus a bonus encore round, mixing coordinates, functions, gradients and real-world problems every time. Each round, you and Team Vertex both answer a few quick questions — and the questions get tougher as the stream goes on. Most correct answers in the round wins it. You'll play through <strong>every round</strong> no matter what — the whole point is the practice, not just the win.
+      4 rounds, plus a bonus encore round, mixing coordinates, plotting and reading points, and coordinate hunts every time. Each round, you and Team Vertex both answer a few quick questions — and the questions get tougher as the stream goes on. Most correct answers in the round wins it. You'll play through <strong>every round</strong> no matter what — the whole point is the practice, not just the win.
     </div>
     <div class="name-entry">
       <label for="teamNameInput">Name your team</label>
@@ -349,7 +370,7 @@
       </div>
     </div>
     <button class="cta-btn" onclick="startMatch()">🔴 Go Live →</button>
-    <div class="cta-note">⏱️ 2.5 minutes and 2 tries per question · 17 questions, covering Part 1's coordinates, functions & linear equations · watch your streak</div>
+    <div class="cta-note">⏱️ 2.5 minutes and 2 tries per question · 19 questions, covering Part 1A's coordinates, plotting & reading points · watch your streak</div>
   </section>
 
   <!-- ROUND INTRO -->
@@ -509,7 +530,7 @@
       <div class="stat-box"><div class="stat-num" id="statStreak">0</div><div class="stat-label">Best streak</div></div>
     </div>
     <div class="round-breakdown" id="roundBreakdown"></div>
-    <p class="share-note">Screenshot this card and challenge a friend to beat your stats! Every round used real skills — coordinates, functions, gradients, and reading linear equations, all under time pressure.</p>
+    <p class="share-note">Screenshot this card and challenge a friend to beat your stats! Every round used real skills — coordinates, quadrants, plotting and reading points, and linear relations, all under time pressure.</p>
     <div style="text-align:center; display:flex; gap:0.7rem; justify-content:center; flex-wrap:wrap;">
       <button class="cta-btn" onclick="goToGapsScreen()">📊 See your learning gaps →</button>
       <button class="cta-btn secondary" onclick="location.reload()">Run it back</button>
@@ -537,81 +558,91 @@
   // Mostly MCQ with close/plausible distractors; a couple of numeric questions
   // where a fair test means removing the crutch of answer choices.
   const rounds = [
-    { title:'Warm-Up Round', questions:[
-      { type:'mcq', skill:'coords', prompt:'What are the coordinates of the origin?',
+    { title:'Coordinate Clout', questions:[
+      { type:'mcq', skill:'cart', prompt:'What are the coordinates of the origin?',
         options:['(0, 0)','(1, 1)','(−1, −1)','It has no coordinates'], correct:0,
         hint:'The origin is where the x-axis and y-axis cross — what number is that on both axes?',
         explain:'The origin is always (0, 0) — zero on the x-axis, zero on the y-axis. Every other point is measured starting from here.' },
-      { type:'plot', skill:'coords', prompt:'A point lies in the 3rd Quadrant, 4 units from the y-axis and 7 units from the x-axis. Tap the grid to plot it.',
-        target:[-4,-7],
-        hint:'In the 3rd Quadrant, are x and y positive or negative? Which direction does "4 from the y-axis" move you?',
-        explain:'3rd Quadrant → both coordinates negative.\n4 from the y-axis → x = −4.\n7 from the x-axis → y = −7.\nCoordinates: (−4, −7).' },
-      { type:'mcq', skill:'functions', prompt:'Which of these mappings is NOT a function?', thinking:true,
-        options:['Each phone number → its one owner','Each user ID → one account','Favourite colour → many students','Each birth date → one zodiac sign'], correct:2,
-        hint:'For each option, ask: could one input ever point to more than one output?',
-        explain:'One favourite colour maps to many students.\nThat\'s more than one output for one input.\nNot a function.' },
-      { type:'mcq', skill:'fx-notation', prompt:'If f(x) = −4x + 7, find f(3).',
-        options:['−5','5','19','−19'], correct:0,
-        hint:'What do you get when you substitute x = 3 into f(x), step by step?',
-        explain:'f(3) = −4(3) + 7\nf(3) = −12 + 7\nf(3) = −5' },
-      { type:'mcq', skill:'coords', prompt:'If a point has x = 0, what does that tell you about where it sits — and why?', thinking:true,
-        options:['It sits exactly on the y-axis','It sits exactly on the x-axis','It\'s always at the origin','It could be anywhere on the graph'], correct:0,
-        hint:'If x tells you how far left/right you\'ve moved from the origin, what does x = 0 mean about that movement?',
-        explain:'x = 0 means zero movement left or right from the origin.\nSo the point must sit directly on the vertical axis — the y-axis.' }
+      { type:'plot', skill:'cart', prompt:'A point lies in the 2nd Quadrant, 5 units from the y-axis and 3 units from the x-axis. Tap the grid to plot it.',
+        target:[-5,3],
+        hint:'In the 2nd Quadrant, are x and y positive or negative? Which direction does "5 from the y-axis" move you?',
+        explain:'2nd Quadrant → x negative, y positive.\n5 from the y-axis → x = −5.\n3 from the x-axis → y = 3.\nCoordinates: (−5, 3).' },
+      { type:'mcq', skill:'cart', prompt:'If a point has y = 0, what does that tell you about where it sits — and why?', thinking:true,
+        options:['It sits exactly on the x-axis','It sits exactly on the y-axis','It\'s always at the origin','It could be anywhere on the graph'], correct:0,
+        hint:'If y tells you how far up/down you\'ve moved from the origin, what does y = 0 mean about that movement?',
+        explain:'y = 0 means zero movement up or down from the origin.\nSo the point must sit directly on the horizontal axis — the x-axis.' },
+      { type:'mcq', skill:'cart', prompt:'Which quadrant does the point (−6, −1) lie in?',
+        options:['1st Quadrant','2nd Quadrant','3rd Quadrant','4th Quadrant'], correct:2,
+        hint:'What are the signs of x and y for this point?',
+        explain:'x = −6 (negative), y = −1 (negative).\n(−, −) is Quadrant III.' }
     ]},
-    { title:'Turning Up the Heat', questions:[
-      { type:'mcq', skill:'read-mc', prompt:'A linear relation gives the points (−2, 9), (0, 3), (4, −9). What is the y-intercept?',
-        options:['3','9','−9','−2'], correct:0,
-        hint:'The y-intercept is where a line crosses the y-axis. What has to be true about a point\'s x-coordinate for it to sit exactly on the y-axis?',
-        explain:'The y-intercept is the y-value when x = 0.\nThat\'s 3, right there in the table.' },
-      { type:'mcq', skill:'functions', prompt:'A graph shows a vertical line at x = 5. What does this tell you about y as a function of x?', thinking:true,
-        options:['It\'s not a function — infinitely many y-values share x = 5','It is a function, since x only appears once','It\'s a function because vertical lines are always functions','Not enough information to say'], correct:0,
-        hint:'At x = 5, how many different y-values does that vertical line actually pass through?',
-        explain:'At x = 5, every y-value on that line counts as an output.\nThat\'s infinitely many outputs for one input.\nNot a function.' },
-      { type:'mcq', skill:'functions', prompt:'Now compare: does y = 9 count as a function of x?', thinking:true,
-        options:['Yes — every x still gives exactly one y, namely 9','No — y never changes, so it can\'t be a function','No — there\'s no x in the equation, so it\'s undefined','Only if x = 9'], correct:0,
-        hint:'For every possible x you could choose, how many y-values does this rule give you?',
-        explain:'A constant relation still gives exactly one output for every input.\nEvery x gives y = 9.\nThat\'s still a function.\nCompare this to x = 5 in the last question, which was NOT a function.' },
-      { type:'mcq', skill:'functions', prompt:'A vending machine takes a code and gives out one specific snack. Is "code → snack" a function? What if two different codes could give the same snack — does that change your answer?', thinking:true,
-        options:['Yes — many-to-one mappings are still functions','No, two codes can\'t give the same snack','No, vending machines can never be functions','Only if every code gives a different snack'], correct:0,
-        hint:'The function rule only cares whether ONE input ever gives more than one output. Does two different inputs giving the SAME output break that rule?',
-        explain:'A function only breaks when one input maps to more than one output.\nSeveral codes giving the same snack is fine — that\'s "many-to-one", still a valid function.\nIt would only stop being a function if the SAME code sometimes gave different snacks.' }
+    { title:'Plot Squad', questions:[
+      { type:'plot', skill:'coordx', prompt:'Plot the point (5, −3).',
+        target:[5,-3],
+        hint:'Count 5 right of the origin first, then 3 down.',
+        explain:'5 right → x = 5.\n3 down → y = −3.\nCoordinates: (5, −3).' },
+      { type:'mcq', skill:'coordx', prompt:'A point sits 4 units left and 6 units up from the origin. What are its coordinates?',
+        options:['(−4, 6)','(4, 6)','(6, −4)','(−4, −6)'], correct:0,
+        hint:'Left of the origin means negative x. Up means positive y.',
+        explain:'4 left → x = −4.\n6 up → y = 6.\nCoordinates: (−4, 6).' },
+      { type:'mcq', skill:'coordx', prompt:'Point R is 3 right and 2 up from the origin. Point S is 3 left and 2 up. What\'s the relationship between R and S?', thinking:true,
+        options:['They\'re mirror images of each other across the y-axis','They\'re the same point','They\'re mirror images across the x-axis','There\'s no relationship between them'], correct:0,
+        hint:'R = (3, 2) and S = (−3, 2) — same y-coordinate, opposite x-coordinate. What does flipping just the sign of x do to a point?',
+        explain:'R = (3, 2), S = (−3, 2).\nSame y-value, opposite x-value.\nThat\'s a reflection across the y-axis.' },
+      { type:'plot', skill:'coordx', prompt:'A point lies exactly on the y-axis, 7 units above the origin. Tap the grid to plot it.',
+        target:[0,7],
+        hint:'"On the y-axis" means it hasn\'t moved left or right at all — what does that make x?',
+        explain:'On the y-axis → x = 0.\n7 above the origin → y = 7.\nCoordinates: (0, 7).' }
     ]},
-    { title:'Real Talk', questions:[
-      { type:'mcq', skill:'read-mc', prompt:'A line has gradient −2 and passes through (3, 1). If y = −2x + c, find c.',
-        options:['7','1','−5','−7'], correct:0,
-        hint:'If you substitute x = 3 and y = 1 into y = −2x + c, what equation are you left with to solve for c?',
-        explain:'1 = −2(3) + c\n1 = −6 + c\nc = 7' },
-      { type:'mcq', skill:'coords', prompt:'Points P(a, b) and Q(a, −b) are reflections of each other. If P lies in the 2nd Quadrant, which quadrant does Q lie in?', thinking:true,
-        options:['3rd Quadrant','1st Quadrant','2nd Quadrant','4th Quadrant'], correct:0,
-        hint:'In the 2nd Quadrant, what are the signs of a and b? Now flip only the sign of b — which quadrant has those signs?',
-        explain:'In the 2nd Quadrant, a < 0 and b > 0.\nSo Q = (a, −b) has a < 0 and −b < 0.\nThat\'s the 3rd Quadrant.' },
-      { type:'mcq', skill:'coords', prompt:'If you accidentally plotted one point in the wrong quadrant, what would happen when you tried to draw the straight line through all your points?', thinking:true,
-        options:['That point wouldn\'t line up with the others, breaking the straight line','The line would still be perfectly straight','It wouldn\'t matter as long as you connect the points in order','The graph would automatically fix itself'], correct:0,
-        hint:'If every other point comes from the same equation and lines up perfectly, what happens when one point doesn\'t belong there?',
-        explain:'A point in the wrong quadrant almost certainly doesn\'t satisfy the equation.\nSo it won\'t sit on the same line as the rest — you\'d see a visible kink or outlier, which is a useful way to catch plotting mistakes.' }
+    { title:'Fairground Hunt', questions:[
+      { type:'mcq', skill:'hunt', prompt:'The diagram shows the 🎣 ring toss stall. What are its coordinates?', diagram:{points:[[4,5]], labels:['🎣']},
+        options:['(4, 5)','(5, 4)','(−4, 5)','(4, −5)'], correct:0,
+        hint:'Count across from the origin first, then up.',
+        explain:'🎣 is 4 right, 5 up from the origin → (4, 5).' },
+      { type:'mcq', skill:'hunt', prompt:'The diagram shows the 🍦 ice cream van. What are its coordinates?', diagram:{points:[[-3,-2]], labels:['🍦']},
+        options:['(−3, −2)','(3, −2)','(−3, 2)','(−2, −3)'], correct:0,
+        hint:'Is the van left or right of the origin? Above or below?',
+        explain:'🍦 is 3 left, 2 down from the origin → (−3, −2).' },
+      { type:'mcq', skill:'hunt', prompt:'A stall is 6 units right and 1 unit down from the entrance (the origin). What are its coordinates?',
+        options:['(6, −1)','(−6, 1)','(1, −6)','(6, 1)'], correct:0,
+        hint:'Right of the entrance is positive x. Down from it is negative y.',
+        explain:'6 right → x = 6.\n1 down → y = −1.\nCoordinates: (6, −1).' },
+      { type:'plot', skill:'hunt', prompt:'The lemonade stand is 2 units right and 4 units down from the entrance. Tap the grid to mark it.',
+        target:[2,-4],
+        hint:'Right of the entrance is positive x. Down is negative y.',
+        explain:'2 right → x = 2.\n4 down → y = −4.\nCoordinates: (2, −4).' }
     ]},
-    { title:'Encore: The Full Picture', questions:[
-      { type:'numeric', skill:'substitute', prompt:'For y = −2x + 3, find y when x = −1.',
-        answer:5,
-        hint:'What do you get when you substitute x = −1 into y = −2x + 3?',
-        explain:'y = −2(−1) + 3\ny = 2 + 3\ny = 5' },
-      { type:'numeric', skill:'substitute', prompt:'Now the other direction: for y = −2x + 3, find x when y = 9.', thinking:true,
-        answer:-3,
-        hint:'Substitute y = 9 into the equation — what are you left with to solve for x?',
-        explain:'9 = −2x + 3\n9 − 3 = −2x\n6 = −2x\nx = −3' },
-      { type:'mcq', skill:'read-mc', prompt:'State the gradient of y = −2x + 3.',
-        options:['−2','2','3','−3'], correct:0,
-        hint:'In the general form y = mx + c, which part of the equation represents the gradient?',
-        explain:'Compare with y = mx + c.\nThe coefficient of x is −2.\nThat\'s the gradient.' },
-      { type:'mcq', skill:'read-mc', prompt:'State the y-intercept of y = −2x + 3.',
-        options:['3','−2','−3','2'], correct:0,
-        hint:'In the general form y = mx + c, which part of the equation represents the y-intercept?',
-        explain:'Compare with y = mx + c.\nThe constant term is 3.\nThat\'s the y-intercept.' },
-      { type:'mcq', skill:'substitute', prompt:'Two students rearrange 4y = 8x + 12 differently, but both end up claiming y = 2x + 3 is correct. How could you check who\'s right without redoing all the algebra?', thinking:true,
-        options:['Substitute a test x-value into both equations','Just trust whoever wrote their working out neater','Rearranging always gives the same answer, so there\'s nothing to check','Compare how many steps each student used'], correct:0,
-        hint:'If two equations are truly equivalent, what should happen when you substitute the same x-value into both of them?',
-        explain:'Try x = 1 in both.\nOriginal: 4y = 8(1) + 12 = 20, so y = 5.\nRearranged: y = 2(1) + 3 = 5.\nBoth give y = 5 — they agree, confirming the rearrangement is correct.' }
+    { title:'Line It Up', questions:[
+      { type:'mcq', skill:'plotb', prompt:'Points (−3, 5), (0, 2), (2, 0) all come from the same linear relation. Which way does the line slope, left to right?',
+        options:['Downward','Upward','It\'s flat','Can\'t tell'], correct:0,
+        hint:'As x increases from −3 to 2, does y increase or decrease?',
+        explain:'y goes from 5 down to 2 down to 0 as x increases.\nThe line falls from left to right — a downward slope.' },
+      { type:'mcq', skill:'plotb', prompt:'While plotting a linear relation, you accidentally place one point in the wrong quadrant. What would you notice when you try to draw the line?', thinking:true,
+        options:['That point wouldn\'t line up with the rest of the points','Nothing — the line still forms perfectly','It only matters if it\'s the first point plotted','The graph automatically corrects itself'], correct:0,
+        hint:'If every other point comes from the same equation and lines up perfectly, what happens to one point that doesn\'t belong?',
+        explain:'A point plotted in the wrong quadrant almost certainly doesn\'t satisfy the equation.\nIt won\'t sit on the same line as the rest — you\'d see a visible kink or outlier, a useful way to catch plotting mistakes.' },
+      { type:'plot', skill:'plotb', prompt:'Points (−1, −2) and (2, 4) come from the same linear relation. Plot the third point on the same line: (0, 0).',
+        target:[0,0],
+        hint:'Just plot the point (0, 0) directly — it happens to sit exactly on the origin.',
+        explain:'(0, 0) is the origin — where the x-axis and y-axis cross.\nAll three points, (−1,−2), (0,0) and (2,4), line up on the same straight line.' },
+      { type:'mcq', skill:'plotb', prompt:'A set of points forms a straight line that slopes downward from left to right. As x increases, what happens to y?',
+        options:['y decreases','y increases','y stays the same','Can\'t tell without more information'], correct:0,
+        hint:'Picture the line falling as you move to the right — is y going up or down as that happens?',
+        explain:'A downward-sloping line means y falls as x rises.\nSo as x increases, y decreases.' }
+    ]},
+    { title:'Encore: Full Grid Challenge', questions:[
+      { type:'mcq', skill:'cart', prompt:'Point A(a, b) is reflected to point B(a, −b). If A lies in the 3rd Quadrant, which quadrant is B in?', thinking:true,
+        options:['2nd Quadrant','1st Quadrant','3rd Quadrant','4th Quadrant'], correct:0,
+        hint:'In the 3rd Quadrant, what are the signs of a and b? Now flip only the sign of b — which quadrant has those signs?',
+        explain:'In the 3rd Quadrant, a < 0 and b < 0.\nSo B = (a, −b) has a < 0 and −b > 0.\nThat\'s the 2nd Quadrant.' },
+      { type:'plot', skill:'coordx', prompt:'A point is 5 units left and 5 units down from the origin. Tap the grid to plot it.',
+        target:[-5,-5],
+        hint:'Left of the origin is negative x. Down is negative y.',
+        explain:'5 left → x = −5.\n5 down → y = −5.\nCoordinates: (−5, −5).' },
+      { type:'mcq', skill:'plotb', prompt:'Points (−4, 6), (0, 2), (2, 0) all come from the same linear relation. Which point could also lie on this same line: (4, −2) or (4, 2)?', thinking:true,
+        options:['(4, −2)','(4, 2)','Both of them','Neither of them'], correct:0,
+        hint:'From (0, 2) to (2, 0), y drops by 2 every time x increases by 2. Keep that same pattern going to x = 4.',
+        explain:'From (0, 2) to (2, 0): y drops 2 as x rises 2.\nContinuing that pattern to x = 4: y drops another 2, to 0 − 2 = −2.\nSo (4, −2) fits the line; (4, 2) doesn\'t.' }
     ]}
   ];
 
@@ -625,20 +656,20 @@
 
   // ---------- Class Tracker (Google Sheets) ----------
   // Paste your deployed Apps Script Web App URL here — see setup-instructions.md
-  const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzHV_Rrj_uFMXt23PzQxFAb16mnhG6zvrTcnh2DOqC2Bx-IPBv3aA6pZsRLN8uo3H7jww/exec';
+  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwOTnxDgZMP840v1oe101j0wuJj42qXyEVm7p2l-7xvjCR3MEoyjMPOEa3x9MuRwExK7w/exec';
   function logToClassTracker(entry){
-    if(!SHEET_URL || SHEET_URL.indexOf('PASTE_YOUR') === 0) return; // not configured yet — skip silently
+    if(!BACKEND_URL || BACKEND_URL.indexOf('PASTE_YOUR') === 0) return; // not configured yet — skip silently
     try{
-      fetch(SHEET_URL, {
+      fetch(BACKEND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight that Apps Script can't handle
-        body: JSON.stringify(Object.assign({ action:'log', game:'Live Battle Part 1' }, entry))
+        body: JSON.stringify(Object.assign({ action:'log', game:'Live Battle Part 1A' }, entry))
       }).catch(() => {}); // fire-and-forget — a dropped log entry should never interrupt gameplay
     }catch(e){ /* offline or blocked — fail silently, the student's own game still works normally */ }
   }
 
   // ---------- Progress persistence ----------
-  const GAME_STORAGE_KEY = 'liveBattleGamePart1_progress_v1';
+  const GAME_STORAGE_KEY = 'liveBattleGamePart1A_progress_v1';
   function saveGameProgress(){
     try{
       localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify({
@@ -662,11 +693,16 @@
     try{ localStorage.removeItem(GAME_STORAGE_KEY); }catch(e){}
   }
   function resetGameProgress(){
-    if(confirm('Reset your progress and start over? This can\'t be undone.')){
-      clearGameProgress();
-      location.reload();
-    }
+    document.getElementById('resetModal').classList.add('show');
   }
+  document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('resetModal');
+    const cancelBtn = document.getElementById('resetCancelBtn');
+    const confirmBtn = document.getElementById('resetConfirmBtn');
+    if(cancelBtn) cancelBtn.addEventListener('click', () => modal.classList.remove('show'));
+    if(confirmBtn) confirmBtn.addEventListener('click', () => { clearGameProgress(); location.reload(); });
+    if(modal) modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
+  });
   function resumeMatch(){
     const saved = loadGameProgress();
     if(!saved) return;
@@ -714,7 +750,7 @@
     if(saved && saved.totalAnswered > 0){
       const qNum = (saved.qIdx || 0) + 1;
       document.getElementById('resumeText').textContent =
-        saved.teamName + ', you were on Round ' + (saved.roundIdx+1) + ' of 4, Question ' + qNum + ' (' + saved.winsYou + '–' + saved.winsRival + ' vs Team Vertex).';
+        saved.teamName + ', you were on Round ' + (saved.roundIdx+1) + ' of ' + rounds.length + ', Question ' + qNum + ' (' + saved.winsYou + '–' + saved.winsRival + ' vs Team Vertex).';
       document.getElementById('resumePanel').style.display = 'block';
       if(input) input.value = saved.teamName;
     }
@@ -1252,57 +1288,49 @@
 
   // ============ Learning Gaps report ============
   const skillContent = {
-    'coords': {
+    'cart': {
       title: 'Coordinates &amp; Quadrants',
       definition: 'The origin (0, 0) is where the axes cross. An ordered pair (x, y) tells you how far left/right and up/down from there. The 4 quadrants each have their own sign pattern: I (+,+), II (−,+), III (−,−), IV (+,−).',
-      workedPrompt: 'Which quadrant is the point (−3, 5) in?',
-      workedSteps: 'x = −3 → negative\ny = 5 → positive\n(−, +) is Quadrant II',
+      workedPrompt: 'Which quadrant is the point (−5, 4) in?',
+      workedSteps: 'x = −5 → negative\ny = 4 → positive\n(−, +) is Quadrant II',
       practiceType: 'mcq',
-      practicePrompt: 'Which quadrant is the point (2, −6) in?',
+      practicePrompt: 'Which quadrant is the point (3, −7) in?',
       practiceOptions: ['Quadrant I','Quadrant II','Quadrant III','Quadrant IV'],
       practiceCorrect: 3,
-      deckPointer: 'Revisit Section A\'s flip cards and coloured quadrant grid in Part 1 of the Learning Deck.'
+      deckPointer: 'Revisit Section A\'s flip cards and coloured quadrant grid in the Learning Deck (Part 1A).'
     },
-    'functions': {
-      title: 'Recognising Functions',
-      definition: 'A function means every input gives exactly one output. If one input could point to more than one output, it\'s not a function.',
-      workedPrompt: 'Is "day of the week → number of letters in its name" a function?',
-      workedSteps: 'Monday → 6 letters\nTuesday → 7 letters\nWednesday → 9 letters\nEvery day always gives exactly one number.\nYes — this is a function.',
+    'coordx': {
+      title: 'Plotting &amp; Reading Individual Points',
+      definition: 'To plot or read any single point, count how far it has moved left/right from the origin for x, then up/down for y — same process either direction.',
+      workedPrompt: 'State the coordinates of a point that is 5 left and 2 down from the origin.',
+      workedSteps: '5 left → x = −5\n2 down → y = −2\nCoordinates: (−5, −2)',
       practiceType: 'mcq',
-      practicePrompt: 'Is "favourite colour → students who like it" a function?',
-      practiceOptions: ['Yes','No'],
-      practiceCorrect: 1,
-      deckPointer: 'Revisit Section C\'s tap cards in Part 1 of the Learning Deck.'
+      practicePrompt: 'State the coordinates of a point that is 6 right and 1 down from the origin.',
+      practiceOptions: ['(6, −1)','(−6, 1)','(1, −6)','(6, 1)'],
+      practiceCorrect: 0,
+      deckPointer: 'Revisit Section A\'s "Plot &amp; Read" activity in the Learning Deck (Part 1A).'
     },
-    'fx-notation': {
-      title: 'Using f(x) Notation',
-      definition: 'f(x) is just another way of writing "y". To find f(a), substitute x = a into the equation — same process as before, just new notation.',
-      workedPrompt: 'If f(x) = 3x − 2, find f(5).',
-      workedSteps: 'f(5) = 3(5) − 2\nf(5) = 15 − 2\nf(5) = 13',
-      practiceType: 'numeric',
-      practicePrompt: 'If f(x) = 3x − 2, find f(2).',
-      practiceAnswer: 4,
-      deckPointer: 'Look at Section C\'s two worked f(x) flip cards in Part 1 of the Learning Deck (f(4) and f(−1)).'
+    'hunt': {
+      title: 'Reading Coordinates in Context',
+      definition: 'Whether it\'s a stall on a themed grid or any labelled point, the same rule applies every time: count across from the origin first, then up or down.',
+      workedPrompt: 'A stall is 4 units left and 3 units up from the entrance. What are its coordinates?',
+      workedSteps: '4 left → x = −4\n3 up → y = 3\nCoordinates: (−4, 3)',
+      practiceType: 'mcq',
+      practicePrompt: 'A stall is 5 units right and 2 units up from the entrance. What are its coordinates?',
+      practiceOptions: ['(5, 2)','(2, 5)','(−5, 2)','(5, −2)'],
+      practiceCorrect: 0,
+      deckPointer: 'Revisit the Coordinate Hunt activity in the Learning Deck (Part 1A).'
     },
-    'read-mc': {
-      title: 'Reading m and c from an Equation',
-      definition: 'In y = mx + c, m is the gradient and c is the y-intercept. Once an equation is in that form, you can read them straight off — no calculation needed.',
-      workedPrompt: 'For y = 5x − 3, identify m and c.',
-      workedSteps: 'Comparing y = 5x − 3 with y = mx + c:\nm = 5\nc = −3',
-      practiceType: 'numeric',
-      practicePrompt: 'For y = −4x + 6, what is the y-intercept, c?',
-      practiceAnswer: 6,
-      deckPointer: 'Revisit the y = mx + c flip card in Section D of Part 1 of the Learning Deck.'
-    },
-    'substitute': {
-      title: 'Substituting Both Directions',
-      definition: 'Normally you substitute x to find y. Sometimes you\'re given y and need to find x instead — substitute the y-value in, then solve for x like a normal algebra problem.',
-      workedPrompt: 'For y = 3x + 1, find x when y = 10.',
-      workedSteps: '10 = 3x + 1\n10 − 1 = 3x\n9 = 3x\nx = 3',
-      practiceType: 'numeric',
-      practicePrompt: 'For y = 2x + 5, find x when y = 13.',
-      practiceAnswer: 4,
-      deckPointer: 'Revisit the "Two directions, one equation" flip cards in Section D of Part 1 of the Learning Deck.'
+    'plotb': {
+      title: 'Plotting a Linear Relation',
+      definition: 'Points from the same linear relation always line up into a perfectly straight line once plotted and joined. If a point doesn\'t fit that line, it\'s almost always a plotting mistake.',
+      workedPrompt: 'Points (−2, −4), (0, 0), (1, 2) come from the same linear relation. Do they line up into a straight line?',
+      workedSteps: 'Plot each point, then check: does y increase by the same amount every time x increases by 1?\nFrom (−2,−4) to (0,0): x up 2, y up 4.\nFrom (0,0) to (1,2): x up 1, y up 2.\nSame rate both times — yes, they line up.',
+      practiceType: 'mcq',
+      practicePrompt: 'Points (−1, 5), (0, 3), (2, −1) come from the same linear relation. Which way does the line slope, left to right?',
+      practiceOptions: ['Downward','Upward','Flat','Can\'t tell'],
+      practiceCorrect: 0,
+      deckPointer: 'Revisit Section B\'s plotting activity in the Learning Deck (Part 1A).'
     }
   };
 
@@ -1485,7 +1513,12 @@
     });
     function moveDot(x, y){ dot.style.left = x + 'px'; dot.style.top = y + 'px'; }
     document.addEventListener('mousemove', e => { if(active) moveDot(e.clientX, e.clientY); });
-    document.addEventListener('touchmove', e => { if(active && e.touches[0]) moveDot(e.touches[0].clientX, e.touches[0].clientY); }, {passive:true});
+    document.addEventListener('touchmove', e => {
+      if(active && e.touches[0]){
+        e.preventDefault(); // stop the page itself from scrolling while the laser is on
+        moveDot(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, {passive:false});
   })();
 
   // ---------- Math symbol toolbar ----------
