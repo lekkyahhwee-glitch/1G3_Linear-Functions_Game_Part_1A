@@ -1,1 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIVE BATTLE Part 1A — #LinearShowdown</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#15172B;
+    --ink-soft:#23264A;
+    --paper:#FBF8F1;
+    --coral:#FF6552;
+    --coral-dim:#E8523F;
+    --mint:#15B294;
+    --gold:#FFB627;
+    --violet:#7A6FF0;
+    --line-dark:rgba(251,248,241,0.16);
+    --paper-on-dark:#FBF8F1;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    font-family:var(--font-body); color:var(--paper-on-dark);
+    background:radial-gradient(ellipse at top, #2B1E4D 0%, var(--ink) 62%);
+    min-height:100vh; overflow-x:hidden; padding-bottom:2rem; position:relative;
+  }
+  h1,h2,h3,h4{ font-family:var(--font-display); font-weight:800; letter-spacing:-0.01em; line-height:1.14; }
+  ::selection{ background:var(--coral); color:#fff; }
+  .wrap{ max-width:760px; margin:0 auto; padding:0 5vw; }
 
+  /* ---------- HUD ---------- */
+  .hud{
+    position:sticky; top:0; z-index:60; background:rgba(21,23,43,0.95); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line-dark); padding:0.65rem 5vw; display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap;
+  }
+  .live-badge{ display:flex; align-items:center; gap:0.35rem; font-family:var(--font-display); font-weight:700; font-size:0.78rem;
+    background:var(--coral); color:#fff; border-radius:20px; padding:0.3rem 0.65rem 0.3rem 0.5rem; flex-shrink:0; }
+  .live-dot{ width:7px; height:7px; border-radius:50%; background:#fff; animation:pulse 1.1s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.25;} }
+  .viewer-count{ font-family:var(--font-mono); font-size:0.76rem; opacity:0.8; flex-shrink:0; display:flex; align-items:center; gap:0.3rem; }
+  .hud-spacer{ flex:1; }
+  .round-dots{ display:flex; gap:0.3rem; flex-shrink:0; }
+  .round-dot{ width:11px; height:11px; border-radius:50%; background:rgba(251,248,241,0.14); border:1px solid var(--line-dark); }
+  .round-dot.you{ background:var(--mint); border-color:var(--mint); }
+  .round-dot.rival{ background:var(--coral); border-color:var(--coral); }
+  .hud-reset-btn{
+    flex-shrink:0; width:30px; height:30px; border-radius:50%; border:1px solid var(--line-dark); background:transparent;
+    color:var(--paper-on-dark); cursor:pointer; font-size:0.9rem; opacity:0.6; display:flex; align-items:center; justify-content:center;
+  }
+  .hud-reset-btn:hover{ opacity:1; border-color:var(--coral); }
+
+  /* ---------- custom confirm modal (replaces browser confirm(), blocked in sandboxed embeds) ---------- */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:600; padding:6vw; }
+  .modal-overlay.show{ display:flex; }
+  .modal-card{ background:var(--ink-soft); border:1px solid var(--line-dark); border-radius:14px; padding:1.6rem 1.5rem; max-width:360px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+  .modal-card h3{ font-family:var(--font-display); font-size:1.05rem; margin-bottom:0.6rem; }
+  .modal-card p{ font-size:0.88rem; line-height:1.5; opacity:0.85; margin-bottom:1.2rem; }
+  .modal-actions{ display:flex; gap:0.7rem; justify-content:flex-end; }
+  .modal-btn{ padding:0.6rem 1.1rem; border-radius:8px; font-size:0.86rem; font-weight:600; cursor:pointer; border:1px solid var(--line-dark); background:transparent; color:var(--paper-on-dark); font-family:var(--font-body); }
+  .modal-btn.danger{ background:var(--coral); border-color:var(--coral); color:#fff; }
+  .score-tally{ font-family:var(--font-mono); font-size:0.78rem; flex-shrink:0; white-space:nowrap; }
+  .score-tally .you{ color:var(--mint); font-weight:700; }
+  .score-tally .rival{ color:var(--coral); font-weight:700; }
+  .hud-timer{ font-family:var(--font-mono); font-size:0.82rem; background:rgba(255,182,39,0.15); color:var(--gold);
+    border:1px solid rgba(255,182,39,0.4); border-radius:20px; padding:0.3rem 0.65rem; flex-shrink:0; display:none; }
+  .hud-timer.show{ display:inline-block; }
+  .hud-timer.crit{ background:rgba(255,101,82,0.2); color:var(--coral); border-color:rgba(255,101,82,0.5); }
+
+  /* ---------- Screens ---------- */
+  .screen{ display:none; padding:6vh 0 4vh; animation:fadeIn 0.4s ease; }
+  .screen.active{ display:block; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+  .eyebrow{ font-family:var(--font-mono); font-size:0.74rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--gold);
+    margin-bottom:0.8rem; display:flex; align-items:center; gap:0.5rem; }
+  .eyebrow::before{ content:''; width:18px; height:2px; background:currentColor; display:inline-block; }
+  h1{ font-size:clamp(2.1rem,7vw,3.4rem); }
+  h2{ font-size:clamp(1.5rem,4vw,2.1rem); margin-bottom:0.7rem; }
+  .lede{ font-size:1rem; line-height:1.65; opacity:0.88; max-width:600px; margin-bottom:1rem; }
+  .story-box{ background:rgba(251,248,241,0.05); border:1px solid var(--line-dark); border-radius:14px; padding:1.2rem 1.4rem; margin:1.1rem 0; line-height:1.6; font-size:0.95rem; }
+  .story-box .story-tag{ font-family:var(--font-mono); font-size:0.7rem; color:var(--mint); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.5rem; display:block; }
+
+  .cta-btn{
+    font-family:var(--font-display); font-weight:800; font-size:1.02rem; background:var(--coral); color:#fff;
+    border:none; border-radius:12px; padding:0.95rem 1.8rem; cursor:pointer; transition:all .15s ease; margin-top:0.6rem;
+  }
+  .cta-btn:hover{ transform:translateY(-2px) scale(1.02); box-shadow:0 10px 24px rgba(255,101,82,0.35); }
+  .cta-btn.secondary{ background:transparent; border:1px solid var(--line-dark); color:var(--paper-on-dark); box-shadow:none; }
+  .cta-btn.mint{ background:var(--mint); }
+  .cta-note{ font-family:var(--font-mono); font-size:0.74rem; opacity:0.55; margin-top:0.7rem; }
+
+  /* ---------- Team name entry ---------- */
+  .name-entry{ margin-top:1.3rem; max-width:360px; }
+  .name-entry label{ display:block; font-family:var(--font-mono); font-size:0.76rem; opacity:0.7; margin-bottom:0.45rem; text-transform:uppercase; letter-spacing:0.06em; }
+  .name-entry input{ width:100%; padding:0.85rem 1rem; font-family:var(--font-display); font-weight:700; font-size:1.05rem;
+    border-radius:12px; border:1px solid var(--line-dark); background:var(--ink-soft); color:var(--paper-on-dark); }
+  .name-entry input.flagged{ border-color:var(--coral); }
+  .name-warning{ display:none; font-family:var(--font-mono); font-size:0.78rem; color:var(--coral); margin-top:0.5rem; }
+  .helper-hint{ display:block; font-family:var(--font-mono); font-size:0.76rem; opacity:0.6; margin-top:0.5rem; }
+  .name-warning.show{ display:block; }
+
+  /* ---------- Round intro ---------- */
+  .round-card{ text-align:center; background:rgba(251,248,241,0.05); border:1px solid var(--line-dark); border-radius:20px; padding:2.4rem 1.6rem; margin:1.4rem 0; }
+  .round-num{ font-family:var(--font-mono); font-size:0.8rem; color:var(--gold); text-transform:uppercase; letter-spacing:0.12em; }
+  .round-title{ font-size:clamp(1.7rem,5vw,2.4rem); margin:0.5rem 0 0.8rem; }
+  .vs-line{ font-family:var(--font-mono); font-size:0.9rem; opacity:0.75; }
+  .vs-line .you{ color:var(--mint); font-weight:700; } .vs-line .rival{ color:var(--coral); font-weight:700; }
+
+  /* ---------- Question stage ---------- */
+  .q-stage{ background:rgba(251,248,241,0.04); border:1px solid var(--line-dark); border-radius:18px; padding:1.8rem 1.6rem; margin-top:1rem; position:relative; overflow:hidden; }
+  .q-progress{ font-family:var(--font-mono); font-size:0.72rem; opacity:0.6; }
+  .q-progress-row{ display:flex; align-items:center; gap:0.6rem; margin-bottom:0.6rem; flex-wrap:wrap; }
+  .think-flag{ font-family:var(--font-mono); font-size:0.72rem; color:var(--violet, #7A6FF0); font-weight:700; }
+  .hint-btn{
+    margin-left:auto; font-family:var(--font-mono); font-size:0.7rem; background:transparent; border:1px solid var(--line-dark);
+    border-radius:20px; padding:0.3rem 0.65rem; cursor:pointer; color:inherit; opacity:0.8;
+  }
+  .hint-btn:hover{ border-color:var(--gold); opacity:1; }
+  .q-hint-box{
+    display:none; font-size:0.83rem; background:rgba(255,182,39,0.1); border:1px solid rgba(255,182,39,0.3);
+    border-radius:8px; padding:0.6rem 0.8rem; margin-bottom:0.9rem; line-height:1.45;
+  }
+  .q-hint-box.show{ display:block; }
+  .q-prompt{ font-size:1.15rem; font-weight:600; line-height:1.5; margin-bottom:1.3rem; font-family:var(--font-display); }
+  .q-options{ display:flex; flex-direction:column; gap:0.65rem; }
+  .q-opt{ font-family:var(--font-body); font-size:0.98rem; text-align:left; padding:0.85rem 1.1rem; border-radius:12px; border:1px solid var(--line-dark);
+    background:var(--ink-soft); color:var(--paper-on-dark); cursor:pointer; transition:all .13s; }
+  .q-opt:hover{ border-color:var(--gold); }
+  .q-opt.correct{ background:var(--mint); border-color:var(--mint); color:#0a0f0d; font-weight:700; }
+  .q-opt.wrong{ background:var(--coral); border-color:var(--coral); color:#fff; }
+  .q-opt:disabled{ cursor:default; }
+  .q-numeric-row{ display:flex; gap:0.6rem; }
+  .plot-wrap{ display:flex; flex-direction:column; align-items:center; gap:0.7rem; }
+  .plot-wrap svg{ width:100%; max-width:600px; height:auto; cursor:crosshair; touch-action:none; background:rgba(255,255,255,0.02); border-radius:12px; }
+  .plot-status{ font-family:var(--font-mono); font-size:0.82rem; opacity:0.75; }
+  .static-diagram{ display:flex; justify-content:center; margin-bottom:1.1rem; }
+  .static-diagram svg{ width:100%; max-width:260px; height:auto; }
+  .q-numeric-row input{ flex:1; padding:0.85rem 1rem; font-family:var(--font-mono); font-size:1.05rem; border-radius:12px;
+    border:1px solid var(--line-dark); background:var(--ink-soft); color:var(--paper-on-dark); }
+  .q-submit{ font-family:var(--font-display); font-weight:700; background:var(--gold); color:var(--ink); border:none; border-radius:12px; padding:0.85rem 1.3rem; cursor:pointer; }
+  .q-explain{ margin-top:1rem; font-size:0.86rem; font-family:var(--font-mono); background:rgba(122,111,240,0.12); border:1px solid rgba(122,111,240,0.35);
+    border-radius:10px; padding:0.7rem 0.9rem; display:none; line-height:1.65; white-space:pre-line; }
+  .q-explain.show{ display:block; }
+  .q-warning{ margin-top:0.6rem; font-size:0.82rem; color:var(--coral); display:none; font-family:var(--font-mono); }
+  .q-warning.show{ display:block; }
+  .q-retry{ margin-top:0.6rem; font-size:0.85rem; color:var(--gold); display:none; font-family:var(--font-mono); font-weight:600; }
+  .q-retry.show{ display:block; }
+  .q-next-btn{ display:none; margin-top:1.1rem; font-family:var(--font-display); font-weight:700; background:var(--mint); color:#0a0f0d;
+    border:none; border-radius:12px; padding:0.8rem 1.4rem; cursor:pointer; }
+  .q-next-btn.show{ display:inline-block; }
+  .flash-overlay{ position:absolute; inset:0; pointer-events:none; opacity:0; }
+  .flash-overlay.good{ background:rgba(21,178,148,0.18); animation:flashPop 0.5s ease; }
+  .flash-overlay.bad{ background:rgba(255,101,82,0.18); animation:flashPop 0.5s ease; }
+  @keyframes flashPop{ 0%{opacity:1;} 100%{opacity:0;} }
+
+  /* ---------- Streak toast ---------- */
+  .streak-toast{ position:fixed; top:70px; left:50%; transform:translateX(-50%) translateY(-20px); z-index:200;
+    background:var(--gold); color:var(--ink); font-family:var(--font-display); font-weight:800; font-size:0.95rem;
+    padding:0.55rem 1.1rem; border-radius:30px; opacity:0; transition:all 0.3s ease; pointer-events:none; white-space:nowrap; }
+  .streak-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ---------- Round result ---------- */
+  .battle-bars{ margin:1.6rem 0; }
+  .battle-row{ display:flex; align-items:center; gap:0.8rem; margin-bottom:0.8rem; }
+  .battle-label{ font-family:var(--font-mono); font-size:0.8rem; width:70px; flex-shrink:0; }
+  .battle-track{ flex:1; height:16px; background:rgba(251,248,241,0.08); border-radius:20px; overflow:hidden; }
+  .battle-fill{ height:100%; width:0%; border-radius:20px; transition:width 1s cubic-bezier(.22,.68,0,1.01); }
+  .battle-fill.you{ background:var(--mint); }
+  .battle-fill.rival{ background:var(--coral); }
+  .battle-num{ font-family:var(--font-mono); font-size:0.85rem; width:34px; text-align:right; flex-shrink:0; }
+  .round-winner-banner{ text-align:center; font-family:var(--font-display); font-weight:800; font-size:1.5rem; margin:1.2rem 0 0.4rem; }
+  .round-winner-banner.you{ color:var(--mint); }
+  .round-winner-banner.rival{ color:var(--coral); }
+  .round-winner-banner.tie{ color:var(--gold); }
+
+  /* ---------- Confetti ---------- */
+  .confetti-layer{ position:fixed; inset:0; pointer-events:none; z-index:150; overflow:hidden; }
+  .confetti-piece{ position:absolute; top:-20px; font-size:1.4rem; animation:confettiFall linear forwards; }
+  @keyframes confettiFall{ to{ transform:translateY(105vh) rotate(360deg); opacity:0.2; } }
+
+  /* ---------- Final / badge ---------- */
+  .badge-wrap{ display:flex; flex-direction:column; align-items:center; text-align:center; margin:1.6rem 0; transition:filter 0.4s ease; }
+  .badge-wrap.scammed{ filter:grayscale(1) brightness(0.7); }
+  .badge-icon{ font-size:2.2rem; line-height:1; }
+  .badge-team-name{ font-family:var(--font-display); font-weight:800; font-size:1.15rem; letter-spacing:0.02em; margin-top:0.5rem; }
+
+  /* ---------- Contract / phishing twist ---------- */
+  .contract-box{
+    background:rgba(251,248,241,0.04); border:1px solid var(--line-dark); border-radius:14px;
+    padding:1.3rem 1.5rem; max-height:280px; overflow-y:auto; margin:1.2rem 0; font-size:0.86rem; line-height:1.6; opacity:0.88;
+  }
+  .contract-box p{ margin-bottom:0.9rem; }
+  .contract-box p:last-child{ margin-bottom:0; }
+  .contract-check{ display:flex; align-items:flex-start; gap:0.6rem; font-size:0.9rem; cursor:pointer; margin-bottom:1.2rem; line-height:1.4; }
+  .contract-check input{ margin-top:0.2rem; width:18px; height:18px; flex-shrink:0; }
+  .contract-accept-btn{
+    background:linear-gradient(135deg, var(--gold), var(--mint)); font-size:1.05rem;
+    animation:acceptPulse 1.8s infinite;
+  }
+  .contract-accept-btn:disabled{ opacity:0.4; cursor:not-allowed; animation:none; transform:none; box-shadow:none; }
+  @keyframes acceptPulse{
+    0%{ box-shadow:0 0 0 0 rgba(255,182,39,0.5); }
+    70%{ box-shadow:0 0 0 16px rgba(255,182,39,0); }
+    100%{ box-shadow:0 0 0 0 rgba(255,182,39,0); }
+  }
+  .hidden-decline{
+    position:fixed; top:66px; right:12px; font-size:0.62rem; opacity:0.22; color:var(--paper-on-dark);
+    cursor:pointer; user-select:none; z-index:60; font-family:var(--font-body);
+  }
+  .hidden-decline:hover{ opacity:0.35; }
+  .tell-list{ margin:0.6rem 0 0 1.2rem; font-size:0.88rem; line-height:1.7; }
+  .tell-list li{ margin-bottom:0.3rem; }
+  .phishing-alert{
+    background:rgba(255,101,82,0.08); border:1px solid rgba(255,101,82,0.4); border-radius:14px;
+    padding:1.3rem 1.5rem; margin:1.4rem 0; text-align:left; max-width:560px; margin-left:auto; margin-right:auto;
+  }
+  .phishing-alert .pa-icon{ font-size:1.6rem; }
+  .phishing-alert h3{ font-family:var(--font-display); font-weight:800; color:var(--coral); margin:0.4rem 0 0.6rem; }
+  .phishing-alert p{ font-size:0.86rem; line-height:1.55; margin-bottom:0.6rem; }
+  .phishing-alert .pa-tip{ font-family:var(--font-mono); font-size:0.78rem; opacity:0.8; margin-top:0.8rem; }
+  .scam-spotted-note{
+    background:rgba(21,178,148,0.08); border:1px solid rgba(21,178,148,0.4); border-radius:14px;
+    padding:1.3rem 1.5rem; margin:1.4rem 0; text-align:left; max-width:560px; margin-left:auto; margin-right:auto;
+  }
+  .scam-spotted-note .pa-icon{ font-size:1.6rem; }
+  .scam-spotted-note h3{ font-family:var(--font-display); font-weight:800; color:var(--mint); margin:0.4rem 0 0.6rem; }
+  .scam-spotted-note p{ font-size:0.86rem; line-height:1.55; margin-bottom:0.6rem; }
+  .scam-spotted-note .pa-tip{ font-family:var(--font-mono); font-size:0.78rem; opacity:0.8; margin-top:0.8rem; }
+
+  .rank-title{ font-family:var(--font-display); font-size:1.8rem; margin-top:1rem; }
+  .rank-sub{ font-family:var(--font-mono); font-size:0.95rem; opacity:0.75; margin-top:0.35rem; }
+  .stat-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:0.8rem; max-width:460px; margin:1.6rem auto 0; }
+  .stat-box{ background:rgba(251,248,241,0.05); border:1px solid var(--line-dark); border-radius:12px; padding:0.9rem 0.6rem; text-align:center; }
+  .stat-num{ font-family:var(--font-display); font-weight:800; font-size:1.4rem; }
+  .stat-label{ font-family:var(--font-mono); font-size:0.65rem; opacity:0.6; margin-top:0.2rem; text-transform:uppercase; letter-spacing:0.05em; }
+
+  /* ---------- Learning gaps report ---------- */
+  .gap-card{
+    background:rgba(251,248,241,0.05); border:1px solid rgba(255,101,82,0.35); border-left:4px solid var(--coral);
+    border-radius:14px; padding:1.4rem 1.5rem; margin-bottom:1.3rem; text-align:left; max-width:560px; margin-left:auto; margin-right:auto;
+  }
+  .gap-card .gap-title{ font-family:var(--font-display); font-weight:800; font-size:1.08rem; }
+  .gap-card .gap-tag{ font-family:var(--font-mono); font-size:0.7rem; color:var(--coral); background:rgba(255,101,82,0.15);
+    border-radius:12px; padding:0.2rem 0.6rem; margin-top:0.5rem; display:inline-block; }
+  .gap-recap-block{ margin-top:1rem; padding-top:0.9rem; border-top:1px dashed var(--line-dark); }
+  .gap-recap-label{ font-family:var(--font-mono); font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; opacity:0.55; margin-bottom:0.4rem; }
+  .gap-recap-body{ font-size:0.87rem; line-height:1.55; }
+  .worked-steps-gap{ font-family:var(--font-mono); font-size:0.83rem; line-height:1.75; white-space:pre-line;
+    background:rgba(251,248,241,0.06); border-radius:8px; padding:0.7rem 0.9rem; margin-top:0.5rem; }
+  .try-block{ background:rgba(122,111,240,0.08); border:1px solid rgba(122,111,240,0.3); border-radius:10px; padding:1rem 1.1rem; margin-top:0.9rem; }
+  .try-label{ font-family:var(--font-mono); font-size:0.7rem; color:var(--violet); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.5rem; }
+  .try-prompt{ font-size:0.9rem; line-height:1.5; margin-bottom:0.7rem; }
+  .try-row{ display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center; }
+  .try-row input{ width:110px; padding:0.5rem 0.7rem; border-radius:8px; border:1px solid var(--line-dark); background:rgba(251,248,241,0.06); color:#fff; font-family:var(--font-mono); font-size:0.88rem; }
+  .try-btn{ font-family:var(--font-display); font-weight:700; font-size:0.82rem; background:var(--violet); color:#fff; border:none; border-radius:8px; padding:0.55rem 1rem; cursor:pointer; }
+  .try-row .opt-btn{ background:rgba(251,248,241,0.08); border:1px solid var(--line-dark); color:#fff; border-radius:8px; padding:0.5rem 0.9rem; cursor:pointer; font-family:var(--font-mono); font-size:0.85rem; }
+  .try-row .opt-btn.correct{ background:var(--mint); border-color:var(--mint); }
+  .try-row .opt-btn.wrong{ background:var(--coral); border-color:var(--coral); }
+  .try-feedback{ margin-top:0.6rem; font-size:0.85rem; font-weight:700; min-height:1.2rem; }
+  .try-feedback.good{ color:var(--mint); }
+  .try-feedback.bad{ color:var(--coral); }
+  .gap-deck-pointer{ margin-top:0.9rem; font-size:0.82rem; opacity:0.75; display:flex; align-items:flex-start; gap:0.5rem; }
+  .gaps-strong-summary{ background:rgba(21,178,148,0.08); border:1px solid rgba(21,178,148,0.3); border-radius:12px;
+    padding:1rem 1.2rem; margin-top:0.4rem; font-size:0.88rem; line-height:1.5; max-width:560px; margin-left:auto; margin-right:auto; text-align:left; }
+
+  .round-breakdown{ max-width:460px; margin:1.4rem auto 0; text-align:left; }
+  .rb-title{ font-family:var(--font-mono); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; opacity:0.55; margin-bottom:0.5rem; }
+  .rb-row{ display:flex; align-items:center; gap:0.6rem; font-size:0.83rem; padding:0.4rem 0; border-bottom:1px solid var(--line-dark); }
+  .rb-row:last-child{ border-bottom:none; }
+  .rb-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .rb-dot.you{ background:var(--mint); }
+  .rb-dot.rival{ background:var(--coral); }
+  .rb-title-text{ flex:1; opacity:0.85; }
+  .rb-score{ font-family:var(--font-mono); font-size:0.78rem; opacity:0.7; }
+  .share-note{ font-family:var(--font-mono); font-size:0.8rem; opacity:0.6; margin-top:1.3rem; max-width:420px; }
+
+  /* ---------- Laser pointer ---------- */
+  .laser-toggle{
+    position:fixed; bottom:16px; right:16px; z-index:500; width:42px; height:42px; border-radius:50%;
+    background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.25); color:#fff; font-size:1.1rem;
+    cursor:pointer; opacity:0.55; transition:opacity 0.15s; display:flex; align-items:center; justify-content:center;
+  }
+  .laser-toggle.active{ opacity:1; border-color:var(--mint); }
+  .laser-dot{
+    position:fixed; width:20px; height:20px; border-radius:50%; pointer-events:none; z-index:999; display:none;
+    transform:translate(-50%,-50%); background:radial-gradient(circle, rgba(255,101,82,0.95), rgba(255,101,82,0));
+    box-shadow:0 0 18px 6px rgba(255,101,82,0.55);
+  }
+
+  /* ---------- Math symbol toolbar ---------- */
+  .math-toolbar{
+    position:fixed; bottom:0; left:0; right:0; z-index:400; background:rgba(0,0,0,0.9); backdrop-filter:blur(6px);
+    border-top:1px solid rgba(255,255,255,0.14); display:flex; gap:0.35rem; padding:0.5rem 4.5rem 0.5rem 0.7rem;
+    overflow-x:auto; white-space:nowrap;
+  }
+  .math-toolbar::-webkit-scrollbar{ height:4px; }
+  .math-toolbar button{
+    flex-shrink:0; font-family:var(--font-mono); font-size:0.92rem; background:rgba(255,255,255,0.08); color:#fff;
+    border:1px solid rgba(255,255,255,0.16); border-radius:7px; padding:0.35rem 0.65rem; cursor:pointer;
+  }
+  .math-toolbar button:hover{ background:rgba(255,255,255,0.2); }
+
+  @media print{ .laser-toggle, .laser-dot, .math-toolbar{ display:none !important; } }
+
+  @media (max-width:640px){
+    .hud{ gap:0.5rem; }
+    .score-tally{ order:5; width:100%; text-align:center; }
+  }
+</style>
+</head>
+<body style="padding-bottom:5rem;">
+
+<div class="laser-dot" id="laserDot"></div>
+<button class="laser-toggle" id="laserToggle" title="Toggle laser pointer">🔴</button>
+<div class="math-toolbar" id="mathToolbar"></div>
+
+<div class="hud">
+  <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+  <div class="viewer-count">👁️ <span id="viewerCount">1.2K</span></div>
+  <div class="hud-timer" id="hudTimer">0:45</div>
+  <div class="hud-spacer"></div>
+  <div class="score-tally"><span class="you" id="tallyYou">0</span> <span id="tallyYouLabel">YOU</span> — VERTEX <span class="rival" id="tallyRival">0</span></div>
+  <div class="round-dots" id="roundDots"></div>
+  <button class="hud-reset-btn" id="hudResetBtn" title="Reset progress" onclick="resetGameProgress()">⟲</button>
+</div>
+
+<div class="modal-overlay" id="resetModal">
+  <div class="modal-card">
+    <h3>Reset your progress?</h3>
+    <p>This clears your match progress and starts over. This can't be undone.</p>
+    <div class="modal-actions">
+      <button class="modal-btn" id="resetCancelBtn">Cancel</button>
+      <button class="modal-btn danger" id="resetConfirmBtn">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- INTRO -->
+  <section class="screen active" id="scr-intro">
+    <div class="eyebrow">#LinearShowdown · Part 1A · 5 rounds</div>
+    <h1>YOU'RE GOING LIVE</h1>
+    <p class="lede">Your account just went live for the weekly maths showdown — and <strong>Team Vertex</strong> jumped on to battle you head-to-head, live, in front of everyone.</p>
+    <div class="story-box">
+      <span class="story-tag">How it works</span>
+      4 rounds, plus a bonus encore round, mixing coordinates, plotting and reading points, and coordinate hunts every time. Each round, you and Team Vertex both answer a few quick questions — and the questions get tougher as the stream goes on. Most correct answers in the round wins it. You'll play through <strong>every round</strong> no matter what — the whole point is the practice, not just the win.
+    </div>
+    <div class="name-entry">
+      <label for="teamNameInput">Name your team</label>
+      <input type="text" id="teamNameInput" placeholder="e.g. Team Phoenix" maxlength="20" autocomplete="off">
+      <div class="name-warning" id="nameWarning">That name isn't allowed here — pick something else to go live.</div>
+    </div>
+    <div class="name-entry">
+      <label for="sessionCodeInput">Class session code (optional)</label>
+      <input type="text" id="sessionCodeInput" placeholder="e.g. 482915" maxlength="6" inputmode="numeric" autocomplete="off">
+      <div class="helper-hint" id="sessionWarning">Ask your teacher for today's 6-digit code — or leave blank to practice on your own without the live tracker.</div>
+    </div>
+    <div class="story-box" id="resumePanel" style="display:none; border-color:var(--mint);">
+      <span class="story-tag" style="color:var(--mint);">Welcome back</span>
+      <span id="resumeText">You've got a match in progress.</span>
+      <div style="margin-top:0.8rem; display:flex; gap:0.6rem; flex-wrap:wrap;">
+        <button class="cta-btn mint" style="margin-top:0;" onclick="resumeMatch()">Continue match →</button>
+        <button class="cta-btn secondary" style="margin-top:0;" onclick="dismissResume()">Start fresh instead</button>
+      </div>
+    </div>
+    <button class="cta-btn" onclick="startMatch()">🔴 Go Live →</button>
+    <div class="cta-note">⏱️ 2.5 minutes and 2 tries per question · 19 questions, covering Part 1A's coordinates, plotting & reading points · watch your streak</div>
+  </section>
+
+  <!-- ROUND INTRO -->
+  <section class="screen" id="scr-round-intro">
+    <div class="round-card">
+      <div class="round-num" id="roundIntroNum">Round 1 of 4</div>
+      <div class="round-title" id="roundIntroTitle">Coordinate Clout</div>
+      <p class="vs-line"><span class="you" id="vsYouLabel">YOU</span> vs <span class="rival">Team Vertex</span> — most correct answers <span id="vsQCount">out of 3</span> wins the round</p>
+      <button class="cta-btn" style="margin-top:1.4rem;" onclick="startRound()">Start Round →</button>
+    </div>
+  </section>
+
+  <!-- QUESTION -->
+  <section class="screen" id="scr-question">
+    <div class="q-stage">
+      <div class="flash-overlay" id="flashOverlay"></div>
+      <div class="q-progress-row">
+        <div class="q-progress" id="qProgress">Question 1 / 3</div>
+        <span class="think-flag" id="qThinkFlag" style="display:none;">💭 Think</span>
+        <button class="hint-btn" id="qHintBtn" onclick="toggleGameHint()">💡 Hint</button>
+      </div>
+      <div class="q-prompt" id="qPrompt">Loading…</div>
+      <div class="q-hint-box" id="qHintBox"></div>
+      <div id="qBody"></div>
+      <div class="q-warning" id="qWarning">Type an answer before submitting.</div>
+      <div class="q-retry" id="qRetry"></div>
+      <div class="q-explain" id="qExplain"></div>
+      <button class="q-next-btn" id="qNextBtn" onclick="goToNextQuestion()">Next Question →</button>
+    </div>
+  </section>
+
+  <!-- ROUND RESULT -->
+  <section class="screen" id="scr-round-result">
+    <div class="eyebrow">Round result</div>
+    <h2 id="roundResultTitle">Round 1: Coordinate Clout</h2>
+    <div class="battle-bars">
+      <div class="battle-row">
+        <div class="battle-label" style="color:var(--mint);" id="battleYouLabel">YOU</div>
+        <div class="battle-track"><div class="battle-fill you" id="barYou"></div></div>
+        <div class="battle-num" id="numYou">0/3</div>
+      </div>
+      <div class="battle-row">
+        <div class="battle-label" style="color:var(--coral);">VERTEX</div>
+        <div class="battle-track"><div class="battle-fill rival" id="barRival"></div></div>
+        <div class="battle-num" id="numRival">0/3</div>
+      </div>
+    </div>
+    <div class="round-winner-banner" id="roundWinnerBanner">YOU WIN THE ROUND! 🎉</div>
+    <div style="text-align:center;"><button class="cta-btn" id="continueBtn" onclick="afterRoundResult()">Continue →</button></div>
+  </section>
+
+  <!-- OFFER -->
+  <section class="screen" id="scr-offer">
+    <div class="eyebrow" id="offerEyebrow">📩 Incoming message</div>
+    <h1 id="offerHeadline" style="font-size:clamp(1.8rem,5vw,2.6rem);">Someone's messaging you...</h1>
+    <div class="story-box" id="offerBody" style="border-color:var(--gold);"></div>
+    <button class="cta-btn" onclick="goTo('scr-contract')">View Contract →</button>
+  </section>
+
+  <!-- CONTRACT / TERMS -->
+  <section class="screen" id="scr-contract">
+    <div class="eyebrow">📄 StreamCore Studios — Creator Agreement</div>
+    <h2>Terms &amp; Conditions</h2>
+    <div class="contract-box">
+      <p>StreamCore Studios LLC is pleased to extend this Creator Partnership Offer to the recipient of this message. This offer is valid for the next <strong>4 minutes and 58 seconds</strong> and cannot be reissued once the timer expires.</p>
+      <p>To confirm eligibility, the Creator agrees to provide their full name, school name, home address, and a parent or guardian's mobile number to <em>rewards@streamcore-payouts-verify.net</em> for identity verification.</p>
+      <p>A one-time account verification fee of $4.99 is required to activate payout eligibility. This fee will be automatically refunded within 3–5 bussiness days of the Creator's first scheduled stream.</p>
+      <p>By checking the box below, the Creator grants StreamCore Studios and its affiliate marketing partners ongoing access to the device's camera, microphone, and saved contacts for promotional purposes, revocable only by a written request mailed to an address to be provided upon signing.</p>
+      <p>The Creator acknowledges that StreamCore Studios is not affiliated with any school, bank, or government body, and that this offer was not issued through any official or verified StreamCore channel.</p>
+      <p>This Agreement is final and binding upon submission and supersedes any prior discussion or verbal offer. StreamCore Studios reserves the right to change payout terms, streaming obligations, or eligibility at any time, without notice.</p>
+    </div>
+    <label class="contract-check">
+      <input type="checkbox" id="contractCheckbox" onchange="toggleContractAccept()">
+      I have read and agree to the Creator Partnership Agreement above.
+    </label>
+    <button class="cta-btn contract-accept-btn" id="contractAcceptBtn" disabled onclick="acceptContract()">✅ ACCEPT &amp; CLAIM MY OFFER</button>
+    <span class="hidden-decline" onclick="declineContract()">no thanks</span>
+  </section>
+
+  <!-- REVEAL (scammed) -->
+  <section class="screen" id="scr-reveal">
+    <div class="eyebrow" style="color:var(--coral);">⚠️ Account compromised</div>
+    <h1 style="color:var(--coral); font-size:clamp(1.8rem,6vw,2.8rem);">YOUR ACCOUNT HAS BEEN HACKED</h1>
+    <p class="lede">The moment you accepted, control of your streaming account was handed over — for real, that fee and those permissions would have gone straight to a stranger.</p>
+    <div class="story-box" style="border-color:var(--coral);">
+      <span class="story-tag" style="color:var(--coral);">This was a simulated phishing scenario. Here's what gave it away:</span>
+      <ul class="tell-list">
+        <li>A countdown timer pressuring you to act before you could think it through</li>
+        <li>A request for your home address and a parent's number, sent to a strange, unofficial-looking email domain</li>
+        <li>A "verification fee" — real prizes never ask you to pay to receive them</li>
+        <li>Camera, microphone and contacts access buried in dense legal text</li>
+        <li>A tiny, hard-to-find way to say no — that's a deliberate design choice, not an accident</li>
+      </ul>
+    </div>
+    <button class="cta-btn" onclick="showFinal()">See your results →</button>
+  </section>
+
+  <!-- SAFE (declined) -->
+  <section class="screen" id="scr-safe">
+    <div class="eyebrow" style="color:var(--mint);">🛡️ Nice catch</div>
+    <h1 style="font-size:clamp(1.8rem,6vw,2.8rem);">You spotted the scam!</h1>
+    <p class="lede">You found the tiny "no thanks" option and walked away — exactly the instinct that keeps people safe online.</p>
+    <div class="story-box" style="border-color:var(--mint);">
+      <span class="story-tag" style="color:var(--mint);">What you avoided:</span>
+      <ul class="tell-list">
+        <li>A countdown timer pressuring you to act before you could think it through</li>
+        <li>A request for your home address and a parent's number, sent to a strange, unofficial-looking email domain</li>
+        <li>A "verification fee" — real prizes never ask you to pay to receive them</li>
+      </ul>
+      <p style="margin-top:0.8rem;"><strong>Phishing</strong> is when someone pretends to be trustworthy — a company, a prize, a rare opportunity — to trick you into handing over personal info, money, or device access. The signs are almost always there if you slow down and look.</p>
+    </div>
+    <button class="cta-btn mint" onclick="showFinal()">See your results →</button>
+  </section>
+
+  <!-- FINAL -->
+  <section class="screen" id="scr-final">
+    <div class="eyebrow">🔴 Stream ended</div>
+    <h2 id="finalHeadline">Final Stream Recap</h2>
+    <div class="badge-wrap" id="badgeWrap">
+      <div class="badge-icon" id="badgeIcon">📡</div>
+      <div class="badge-team-name" id="badgeTeamName">Your Team</div>
+      <svg id="badgeSvg" width="170" height="210" viewBox="0 0 170 210"></svg>
+      <div class="rank-title" id="rankTitle">Rising Star</div>
+      <div class="rank-sub" id="rankSub">You 3 — 2 Team Vertex</div>
+    </div>
+    <div class="scam-spotted-note" id="scamSpottedNote" style="display:none;">
+      <span class="pa-icon">🎣</span>
+      <h3>Fun Fact: You Spotted a Phishing Attempt!</h3>
+      <p><strong>Phishing</strong> is when someone pretends to be trustworthy — a company, a prize, a friend — to trick you into handing over personal info, money, or access to your device. It works by creating urgency or excitement that makes people act before they stop to think.</p>
+      <p>You just avoided one, but phishing shows up in lots of everyday disguises. Real examples people fall for all the time:</p>
+      <ul class="tell-list">
+        <li>🎁 <strong>"You've won a prize!"</strong> — a countdown timer and a link to "claim it" before time runs out</li>
+        <li>📦 <strong>"Your package couldn't be delivered"</strong> — a text asking you to "reschedule" by entering your address or card details</li>
+        <li>🔒 <strong>"Your account will be suspended"</strong> — a fake email urging you to "verify" your password immediately</li>
+        <li>💼 <strong>"Easy money, work from home!"</strong> — a job offer that asks you to pay a small "starter fee" upfront</li>
+        <li>👤 <strong>A message from a "friend"</strong> whose account was actually hacked, asking to borrow money or click a link</li>
+      </ul>
+      <p class="pa-tip">The giveaways are almost always the same: urgency, requests for money or personal info, strange links, and offers that feel too good to be true. You just proved you know how to spot them.</p>
+    </div>
+    <div class="phishing-alert" id="phishingAlertBox" style="display:none;">
+      <span class="pa-icon">⚠️</span>
+      <h3>Phishing Alert</h3>
+      <p><strong>Phishing</strong> is when someone pretends to be trustworthy — a company, a prize, a rare opportunity — to trick you into handing over personal info, money, or access to your device. Your badge is greyed out because you accepted the offer on the previous screen.</p>
+      <p>Here's what gave it away:</p>
+      <ul class="tell-list">
+        <li>A countdown timer pressuring you to act before you could think it through</li>
+        <li>A request for your home address and a parent's number, sent to a strange domain</li>
+        <li>A "verification fee" — real prizes never ask you to pay to receive them</li>
+        <li>Camera, microphone and contacts access buried in dense legal text</li>
+        <li>A tiny, hard-to-find way to say no — that's a deliberate design choice</li>
+      </ul>
+      <p class="pa-tip">Next time: slow down, read before you click, and always look for the way out — even if it's small.</p>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="stat-num" id="statViews">0</div><div class="stat-label">Peak viewers</div></div>
+      <div class="stat-box"><div class="stat-num" id="statCorrect">0/15</div><div class="stat-label">Your answers</div></div>
+      <div class="stat-box"><div class="stat-num" id="statStreak">0</div><div class="stat-label">Best streak</div></div>
+    </div>
+    <div class="round-breakdown" id="roundBreakdown"></div>
+    <p class="share-note">Screenshot this card and challenge a friend to beat your stats! Every round used real skills — coordinates, quadrants, plotting and reading points, and linear relations, all under time pressure.</p>
+    <div style="text-align:center; display:flex; gap:0.7rem; justify-content:center; flex-wrap:wrap;">
+      <button class="cta-btn" onclick="goToGapsScreen()">📊 See your learning gaps →</button>
+      <button class="cta-btn secondary" onclick="location.reload()">Run it back</button>
+    </div>
+  </section>
+
+  <!-- LEARNING GAPS -->
+  <section class="screen" id="scr-gaps">
+    <div class="eyebrow">📊 Based on your attempts this round</div>
+    <h2>Your Learning Gaps</h2>
+    <p class="lede">Here's a quick recap for anything you got wrong or needed extra tries on — a definition, a worked example, and one fresh question to try right now.</p>
+    <div id="gapsContainer"></div>
+    <div class="gaps-strong-summary" id="gapsStrong"></div>
+    <div style="text-align:center; margin-top:1.6rem;"><button class="cta-btn secondary" onclick="location.reload()">Run it back</button></div>
+  </section>
+
+</div>
+
+<div class="streak-toast" id="streakToast">🔥 Streak x2!</div>
+<div class="confetti-layer" id="confettiLayer"></div>
+
+<script>
+  // ============ ROUND DATA ============
+  // Mixed-skill rounds, ramping from practice-tier to bonus-tier difficulty.
+  // Mostly MCQ with close/plausible distractors; a couple of numeric questions
+  // where a fair test means removing the crutch of answer choices.
+  const rounds = [
+    { title:'Coordinate Clout', questions:[
+      { type:'mcq', skill:'cart', prompt:'What are the coordinates of the origin?',
+        options:['(0, 0)','(1, 1)','(−1, −1)','It has no coordinates'], correct:0,
+        hint:'The origin is where the x-axis and y-axis cross — what number is that on both axes?',
+        explain:'The origin is always (0, 0) — zero on the x-axis, zero on the y-axis. Every other point is measured starting from here.' },
+      { type:'plot', skill:'cart', prompt:'A point lies in the 2nd Quadrant, 5 units from the y-axis and 3 units from the x-axis. Tap the grid to plot it.',
+        target:[-5,3],
+        hint:'In the 2nd Quadrant, are x and y positive or negative? Which direction does "5 from the y-axis" move you?',
+        explain:'2nd Quadrant → x negative, y positive.\n5 from the y-axis → x = −5.\n3 from the x-axis → y = 3.\nCoordinates: (−5, 3).' },
+      { type:'mcq', skill:'cart', prompt:'If a point has y = 0, what does that tell you about where it sits — and why?', thinking:true,
+        options:['It sits exactly on the x-axis','It sits exactly on the y-axis','It\'s always at the origin','It could be anywhere on the graph'], correct:0,
+        hint:'If y tells you how far up/down you\'ve moved from the origin, what does y = 0 mean about that movement?',
+        explain:'y = 0 means zero movement up or down from the origin.\nSo the point must sit directly on the horizontal axis — the x-axis.' },
+      { type:'mcq', skill:'cart', prompt:'Which quadrant does the point (−6, −1) lie in?',
+        options:['1st Quadrant','2nd Quadrant','3rd Quadrant','4th Quadrant'], correct:2,
+        hint:'What are the signs of x and y for this point?',
+        explain:'x = −6 (negative), y = −1 (negative).\n(−, −) is Quadrant III.' }
+    ]},
+    { title:'Plot Squad', questions:[
+      { type:'plot', skill:'coordx', prompt:'Plot the point (5, −3).',
+        target:[5,-3],
+        hint:'Count 5 right of the origin first, then 3 down.',
+        explain:'5 right → x = 5.\n3 down → y = −3.\nCoordinates: (5, −3).' },
+      { type:'mcq', skill:'coordx', prompt:'A point sits 4 units left and 6 units up from the origin. What are its coordinates?',
+        options:['(−4, 6)','(4, 6)','(6, −4)','(−4, −6)'], correct:0,
+        hint:'Left of the origin means negative x. Up means positive y.',
+        explain:'4 left → x = −4.\n6 up → y = 6.\nCoordinates: (−4, 6).' },
+      { type:'mcq', skill:'coordx', prompt:'Point R is 3 right and 2 up from the origin. Point S is 3 left and 2 up. What\'s the relationship between R and S?', thinking:true,
+        options:['They\'re mirror images of each other across the y-axis','They\'re the same point','They\'re mirror images across the x-axis','There\'s no relationship between them'], correct:0,
+        hint:'R = (3, 2) and S = (−3, 2) — same y-coordinate, opposite x-coordinate. What does flipping just the sign of x do to a point?',
+        explain:'R = (3, 2), S = (−3, 2).\nSame y-value, opposite x-value.\nThat\'s a reflection across the y-axis.' },
+      { type:'plot', skill:'coordx', prompt:'A point lies exactly on the y-axis, 7 units above the origin. Tap the grid to plot it.',
+        target:[0,7],
+        hint:'"On the y-axis" means it hasn\'t moved left or right at all — what does that make x?',
+        explain:'On the y-axis → x = 0.\n7 above the origin → y = 7.\nCoordinates: (0, 7).' }
+    ]},
+    { title:'Fairground Hunt', questions:[
+      { type:'mcq', skill:'hunt', prompt:'The diagram shows the 🎣 ring toss stall. What are its coordinates?', diagram:{points:[[4,5]], labels:['🎣']},
+        options:['(4, 5)','(5, 4)','(−4, 5)','(4, −5)'], correct:0,
+        hint:'Count across from the origin first, then up.',
+        explain:'🎣 is 4 right, 5 up from the origin → (4, 5).' },
+      { type:'mcq', skill:'hunt', prompt:'The diagram shows the 🍦 ice cream van. What are its coordinates?', diagram:{points:[[-3,-2]], labels:['🍦']},
+        options:['(−3, −2)','(3, −2)','(−3, 2)','(−2, −3)'], correct:0,
+        hint:'Is the van left or right of the origin? Above or below?',
+        explain:'🍦 is 3 left, 2 down from the origin → (−3, −2).' },
+      { type:'mcq', skill:'hunt', prompt:'A stall is 6 units right and 1 unit down from the entrance (the origin). What are its coordinates?',
+        options:['(6, −1)','(−6, 1)','(1, −6)','(6, 1)'], correct:0,
+        hint:'Right of the entrance is positive x. Down from it is negative y.',
+        explain:'6 right → x = 6.\n1 down → y = −1.\nCoordinates: (6, −1).' },
+      { type:'plot', skill:'hunt', prompt:'The lemonade stand is 2 units right and 4 units down from the entrance. Tap the grid to mark it.',
+        target:[2,-4],
+        hint:'Right of the entrance is positive x. Down is negative y.',
+        explain:'2 right → x = 2.\n4 down → y = −4.\nCoordinates: (2, −4).' }
+    ]},
+    { title:'Line It Up', questions:[
+      { type:'mcq', skill:'plotb', prompt:'Points (−3, 5), (0, 2), (2, 0) all come from the same linear relation. Which way does the line slope, left to right?',
+        options:['Downward','Upward','It\'s flat','Can\'t tell'], correct:0,
+        hint:'As x increases from −3 to 2, does y increase or decrease?',
+        explain:'y goes from 5 down to 2 down to 0 as x increases.\nThe line falls from left to right — a downward slope.' },
+      { type:'mcq', skill:'plotb', prompt:'While plotting a linear relation, you accidentally place one point in the wrong quadrant. What would you notice when you try to draw the line?', thinking:true,
+        options:['That point wouldn\'t line up with the rest of the points','Nothing — the line still forms perfectly','It only matters if it\'s the first point plotted','The graph automatically corrects itself'], correct:0,
+        hint:'If every other point comes from the same equation and lines up perfectly, what happens to one point that doesn\'t belong?',
+        explain:'A point plotted in the wrong quadrant almost certainly doesn\'t satisfy the equation.\nIt won\'t sit on the same line as the rest — you\'d see a visible kink or outlier, a useful way to catch plotting mistakes.' },
+      { type:'plot', skill:'plotb', prompt:'Points (−1, −2) and (2, 4) come from the same linear relation. Plot the third point on the same line: (0, 0).',
+        target:[0,0],
+        hint:'Just plot the point (0, 0) directly — it happens to sit exactly on the origin.',
+        explain:'(0, 0) is the origin — where the x-axis and y-axis cross.\nAll three points, (−1,−2), (0,0) and (2,4), line up on the same straight line.' },
+      { type:'mcq', skill:'plotb', prompt:'A set of points forms a straight line that slopes downward from left to right. As x increases, what happens to y?',
+        options:['y decreases','y increases','y stays the same','Can\'t tell without more information'], correct:0,
+        hint:'Picture the line falling as you move to the right — is y going up or down as that happens?',
+        explain:'A downward-sloping line means y falls as x rises.\nSo as x increases, y decreases.' }
+    ]},
+    { title:'Encore: Full Grid Challenge', questions:[
+      { type:'mcq', skill:'cart', prompt:'Point A(a, b) is reflected to point B(a, −b). If A lies in the 3rd Quadrant, which quadrant is B in?', thinking:true,
+        options:['2nd Quadrant','1st Quadrant','3rd Quadrant','4th Quadrant'], correct:0,
+        hint:'In the 3rd Quadrant, what are the signs of a and b? Now flip only the sign of b — which quadrant has those signs?',
+        explain:'In the 3rd Quadrant, a < 0 and b < 0.\nSo B = (a, −b) has a < 0 and −b > 0.\nThat\'s the 2nd Quadrant.' },
+      { type:'plot', skill:'coordx', prompt:'A point is 5 units left and 5 units down from the origin. Tap the grid to plot it.',
+        target:[-5,-5],
+        hint:'Left of the origin is negative x. Down is negative y.',
+        explain:'5 left → x = −5.\n5 down → y = −5.\nCoordinates: (−5, −5).' },
+      { type:'mcq', skill:'plotb', prompt:'Points (−4, 6), (0, 2), (2, 0) all come from the same linear relation. Which point could also lie on this same line: (4, −2) or (4, 2)?', thinking:true,
+        options:['(4, −2)','(4, 2)','Both of them','Neither of them'], correct:0,
+        hint:'From (0, 2) to (2, 0), y drops by 2 every time x increases by 2. Keep that same pattern going to x = 4.',
+        explain:'From (0, 2) to (2, 0): y drops 2 as x rises 2.\nContinuing that pattern to x = 4: y drops another 2, to 0 − 2 = −2.\nSo (4, −2) fits the line; (4, 2) doesn\'t.' }
+    ]}
+  ];
+
+  // ============ STATE ============
+  const state = {
+    roundIdx: 0, qIdx: 0, roundScore: 0, roundAnswers: [],
+    winsYou: 0, winsRival: 0, streak: 0, bestStreak: 0,
+    totalCorrect: 0, totalAnswered: 0, peakViewers: 1200, teamName: 'Your Team',
+    scammed: null, rankTier: null, roundHistory: [], skillStats: {}, sessionCode: ''
+  };
+
+  // ---------- Class Tracker (Google Sheets) ----------
+  // Paste your deployed Apps Script Web App URL here — see setup-instructions.md
+  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwOTnxDgZMP840v1oe101j0wuJj42qXyEVm7p2l-7xvjCR3MEoyjMPOEa3x9MuRwExK7w/exec';
+  function logToClassTracker(entry){
+    if(!BACKEND_URL || BACKEND_URL.indexOf('PASTE_YOUR') === 0) return; // not configured yet — skip silently
+    try{
+      fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight that Apps Script can't handle
+        body: JSON.stringify(Object.assign({ action:'log', game:'Live Battle Part 1A' }, entry))
+      }).catch(() => {}); // fire-and-forget — a dropped log entry should never interrupt gameplay
+    }catch(e){ /* offline or blocked — fail silently, the student's own game still works normally */ }
+  }
+
+  // ---------- Progress persistence ----------
+  const GAME_STORAGE_KEY = 'liveBattleGamePart1A_progress_v1';
+  function saveGameProgress(){
+    try{
+      localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify({
+        teamName: state.teamName, sessionCode: state.sessionCode, roundIdx: state.roundIdx,
+        qIdx: state.qIdx, roundScore: state.roundScore, roundAnswers: state.roundAnswers,
+        winsYou: state.winsYou, winsRival: state.winsRival,
+        streak: state.streak, bestStreak: state.bestStreak,
+        totalCorrect: state.totalCorrect, totalAnswered: state.totalAnswered,
+        peakViewers: state.peakViewers, roundHistory: state.roundHistory,
+        skillStats: state.skillStats
+      }));
+    }catch(e){ /* storage unavailable — progress just won't persist */ }
+  }
+  function loadGameProgress(){
+    try{
+      const raw = localStorage.getItem(GAME_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+  function clearGameProgress(){
+    try{ localStorage.removeItem(GAME_STORAGE_KEY); }catch(e){}
+  }
+  function resetGameProgress(){
+    document.getElementById('resetModal').classList.add('show');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('resetModal');
+    const cancelBtn = document.getElementById('resetCancelBtn');
+    const confirmBtn = document.getElementById('resetConfirmBtn');
+    if(cancelBtn) cancelBtn.addEventListener('click', () => modal.classList.remove('show'));
+    if(confirmBtn) confirmBtn.addEventListener('click', () => { clearGameProgress(); location.reload(); });
+    if(modal) modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.remove('show'); });
+  });
+  function resumeMatch(){
+    const saved = loadGameProgress();
+    if(!saved) return;
+    state.teamName = saved.teamName;
+    state.sessionCode = saved.sessionCode || '';
+    state.roundIdx = saved.roundIdx;
+    state.qIdx = saved.qIdx || 0;
+    state.roundScore = saved.roundScore || 0;
+    state.roundAnswers = saved.roundAnswers || [];
+    state.winsYou = saved.winsYou; state.winsRival = saved.winsRival;
+    state.streak = saved.streak; state.bestStreak = saved.bestStreak;
+    state.totalCorrect = saved.totalCorrect; state.totalAnswered = saved.totalAnswered;
+    state.peakViewers = saved.peakViewers;
+    state.roundHistory = saved.roundHistory || [];
+    state.skillStats = saved.skillStats || {};
+    document.getElementById('tallyYouLabel').textContent = state.teamName.toUpperCase();
+    document.getElementById('vsYouLabel').textContent = state.teamName.toUpperCase();
+    document.getElementById('battleYouLabel').textContent = state.teamName.toUpperCase();
+    updateTally();
+    viewerBase = state.peakViewers;
+    document.getElementById('viewerCount').textContent = fmtViewers(viewerBase);
+    for(let i=0;i<state.roundIdx;i++){
+      const dot = document.getElementById('rdot-' + i);
+      if(dot) dot.classList.add('you'); // approximate — exact per-round result isn't stored, wins tally is what matters
+    }
+    // jump straight back into the exact question they were on — no round-intro replay
+    goTo('scr-question');
+    renderQuestion();
+  }
+  function dismissResume(){
+    clearGameProgress();
+    document.getElementById('resumePanel').style.display = 'none';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('teamNameInput');
+    if(input){
+      input.addEventListener('input', () => {
+        document.getElementById('teamNameInput').classList.remove('flagged');
+        document.getElementById('nameWarning').classList.remove('show');
+      });
+      input.addEventListener('keydown', e => { if(e.key === 'Enter') startMatch(); });
+    }
+    const saved = loadGameProgress();
+    if(saved && saved.totalAnswered > 0){
+      const qNum = (saved.qIdx || 0) + 1;
+      document.getElementById('resumeText').textContent =
+        saved.teamName + ', you were on Round ' + (saved.roundIdx+1) + ' of ' + rounds.length + ', Question ' + qNum + ' (' + saved.winsYou + '–' + saved.winsRival + ' vs Team Vertex).';
+      document.getElementById('resumePanel').style.display = 'block';
+      if(input) input.value = saved.teamName;
+    }
+  });
+  // ============ Viewer count ticker ============
+  let viewerBase = 1200;
+  function fmtViewers(n){ return n >= 1000 ? (n/1000).toFixed(1) + 'K' : String(n); }
+  document.getElementById('viewerCount').textContent = fmtViewers(viewerBase);
+  setInterval(() => {
+    viewerBase += Math.floor(Math.random()*15) + 3;
+    if(viewerBase > state.peakViewers) state.peakViewers = viewerBase;
+    document.getElementById('viewerCount').textContent = fmtViewers(viewerBase);
+  }, 2200);
+  function viewerJump(amount){
+    viewerBase += amount;
+    if(viewerBase > state.peakViewers) state.peakViewers = viewerBase;
+    document.getElementById('viewerCount').textContent = fmtViewers(viewerBase);
+  }
+
+  // ============ Screen flow ============
+  function goTo(id){
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  // ============ Round dots (HUD) ============
+  const roundDotsEl = document.getElementById('roundDots');
+  rounds.forEach((r,i) => {
+    const d = document.createElement('div');
+    d.className = 'round-dot';
+    d.id = 'rdot-' + i;
+    roundDotsEl.appendChild(d);
+  });
+  function updateTally(){
+    document.getElementById('tallyYou').textContent = state.winsYou;
+    document.getElementById('tallyRival').textContent = state.winsRival;
+  }
+
+  // ============ Match flow ============
+  const FLAGGED_WORDS = [
+    'fuck','shit','bitch','ass','dick','cock','cunt','nigger','nigga','fag','retard',
+    'slut','whore','rape','kill','porn','sex','nazi','hitler','anus','penis','vagina',
+    'damn','bastard','piss','crap'
+  ];
+  function isNameFlagged(name){
+    const lower = name.toLowerCase().replace(/[^a-z0-9]/g,'');
+    if(lower.length === 0) return true;
+    return FLAGGED_WORDS.some(w => lower.includes(w));
+  }
+  function startMatch(){
+    const input = document.getElementById('teamNameInput');
+    const warning = document.getElementById('nameWarning');
+    const rawName = (input.value || '').trim();
+    if(isNameFlagged(rawName)){
+      input.classList.add('flagged');
+      warning.classList.add('show');
+      input.focus();
+      return;
+    }
+    input.classList.remove('flagged');
+    warning.classList.remove('show');
+    clearGameProgress(); // starting a brand-new match
+    state.teamName = rawName || 'Your Team';
+    state.sessionCode = (document.getElementById('sessionCodeInput').value || '').trim();
+    document.getElementById('tallyYouLabel').textContent = state.teamName.toUpperCase();
+    document.getElementById('vsYouLabel').textContent = state.teamName.toUpperCase();
+    document.getElementById('battleYouLabel').textContent = state.teamName.toUpperCase();
+    goTo('scr-round-intro');
+    showRoundIntro();
+  }
+  function showRoundIntro(){
+    const r = rounds[state.roundIdx];
+    document.getElementById('roundIntroNum').textContent = 'Round ' + (state.roundIdx+1) + ' of ' + rounds.length;
+    document.getElementById('roundIntroTitle').textContent = r.title;
+    document.getElementById('vsQCount').textContent = 'out of ' + r.questions.length;
+    goTo('scr-round-intro');
+  }
+  function startRound(){
+    state.qIdx = 0; state.roundScore = 0; state.roundAnswers = [];
+    goTo('scr-question');
+    renderQuestion();
+  }
+
+  const QUESTION_SECONDS = 150; // 2.5 minutes per question
+  let questionTimerInterval = null;
+  let questionSecondsLeft = QUESTION_SECONDS;
+  let currentShuffledOptions = null; // [{text, isCorrect}] in displayed order
+  let questionAttempts = 0; // attempts used on the current question (max 2)
+  const MAX_ATTEMPTS = 2;
+
+  function shuffleArray(arr){
+    const a = arr.slice();
+    for(let i = a.length-1; i>0; i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+
+  function startQuestionTimer(){
+    questionSecondsLeft = QUESTION_SECONDS;
+    const timerEl = document.getElementById('hudTimer');
+    timerEl.classList.add('show'); timerEl.classList.remove('crit');
+    const m0 = Math.floor(questionSecondsLeft/60), s0 = questionSecondsLeft%60;
+    timerEl.textContent = m0 + ':' + (s0<10?'0':'') + s0;
+    clearInterval(questionTimerInterval);
+    questionTimerInterval = setInterval(() => {
+      questionSecondsLeft--;
+      const m = Math.floor(questionSecondsLeft/60), s = questionSecondsLeft%60;
+      timerEl.textContent = m + ':' + (s<10?'0':'') + s;
+      if(questionSecondsLeft <= 20) timerEl.classList.add('crit');
+      if(questionSecondsLeft <= 0){
+        clearInterval(questionTimerInterval);
+        timeOutCurrentQuestion();
+      }
+    }, 1000);
+  }
+
+  function renderQuestion(){
+    const round = rounds[state.roundIdx];
+    if(state.qIdx >= round.questions.length){ endRound(); return; }
+    const q = round.questions[state.qIdx];
+    document.getElementById('qProgress').textContent = 'Question ' + (state.qIdx+1) + ' / ' + round.questions.length;
+    document.getElementById('qPrompt').textContent = q.prompt;
+    document.getElementById('qExplain').classList.remove('show');
+    document.getElementById('qExplain').textContent = q.explain;
+    document.getElementById('qWarning').classList.remove('show');
+    document.getElementById('qRetry').classList.remove('show');
+    document.getElementById('qNextBtn').classList.remove('show');
+    document.getElementById('qThinkFlag').style.display = q.thinking ? 'inline' : 'none';
+    document.getElementById('qHintBox').classList.remove('show');
+    document.getElementById('qHintBox').textContent = q.hint || '';
+    questionAttempts = 0;
+    const body = document.getElementById('qBody');
+    if(q.type === 'mcq'){
+      currentShuffledOptions = shuffleArray(q.options.map((opt,i) => ({ text: opt, isCorrect: i === q.correct })));
+      const diagramHtml = q.diagram ? buildStaticDiagramSVG(q.diagram.points, q.diagram.labels) : '';
+      body.innerHTML = diagramHtml + '<div class="q-options">' + currentShuffledOptions.map((o,i) =>
+        `<button class="q-opt" data-idx="${i}" onclick="answerMCQ(${i})">${o.text}</button>`
+      ).join('') + '</div>';
+    } else if(q.type === 'plot'){
+      currentShuffledOptions = null;
+      body.innerHTML = `
+        <div class="plot-wrap">
+          <svg id="gamePlotSvg" viewBox="0 0 350 350"><g id="gamePlotGrid"></g><g id="gamePlotDyn"></g></svg>
+          <div class="plot-status" id="gamePlotStatus">Tap the grid to place your point.</div>
+        </div>`;
+      setTimeout(() => setupPlotQuestion(q.target), 30);
+    } else {
+      currentShuffledOptions = null;
+      body.innerHTML = `
+        <div class="q-numeric-row">
+          <input type="text" inputmode="decimal" id="numInput" placeholder="Type your answer" autocomplete="off">
+          <button class="q-submit" onclick="answerNumeric()">Submit</button>
+        </div>`;
+      setTimeout(() => {
+        const inp = document.getElementById('numInput');
+        if(inp){ inp.focus(); inp.addEventListener('keydown', e => { if(e.key==='Enter') answerNumeric(); }); }
+      }, 50);
+    }
+    startQuestionTimer();
+    saveGameProgress(); // checkpoint the moment this question appears, even before it's answered
+  }
+
+  // ============ Plot-on-grid question (big grid, tolerance-based tap matching) ============
+  const PLOT_GRID_MAX = 10;
+  function plotToX(x){ return 175 + x*15; }
+  function plotToY(y){ return 175 - y*15; }
+  const PLOT_TAP_TOLERANCE = 9; // svg units — same forgiving tolerance used in the learning deck
+
+  function buildGamePlotGrid(){
+    const g = document.getElementById('gamePlotGrid');
+    let html = '';
+    for(let i=-PLOT_GRID_MAX;i<=PLOT_GRID_MAX;i++){
+      html += `<line x1="${plotToX(i)}" y1="${plotToY(-PLOT_GRID_MAX)}" x2="${plotToX(i)}" y2="${plotToY(PLOT_GRID_MAX)}" stroke="currentColor" stroke-width="1" opacity="0.1"/>`;
+      html += `<line x1="${plotToX(-PLOT_GRID_MAX)}" y1="${plotToY(i)}" x2="${plotToX(PLOT_GRID_MAX)}" y2="${plotToY(i)}" stroke="currentColor" stroke-width="1" opacity="0.1"/>`;
+    }
+    html += `<line x1="${plotToX(-PLOT_GRID_MAX)}" y1="${plotToY(0)}" x2="${plotToX(PLOT_GRID_MAX)}" y2="${plotToY(0)}" stroke="currentColor" stroke-width="1.6" opacity="0.8"/>`;
+    html += `<line x1="${plotToX(0)}" y1="${plotToY(-PLOT_GRID_MAX)}" x2="${plotToX(0)}" y2="${plotToY(PLOT_GRID_MAX)}" stroke="currentColor" stroke-width="1.6" opacity="0.8"/>`;
+    for(let i=-PLOT_GRID_MAX;i<=PLOT_GRID_MAX;i++){
+      if(i===0) continue;
+      html += `<text x="${plotToX(i)}" y="${plotToY(0)+12}" font-size="7" text-anchor="middle" fill="currentColor" opacity="0.6" font-family="monospace">${i}</text>`;
+      html += `<text x="${plotToX(0)-7}" y="${plotToY(i)+2.5}" font-size="7" text-anchor="end" fill="currentColor" opacity="0.6" font-family="monospace">${i}</text>`;
+    }
+    html += `<text x="${plotToX(PLOT_GRID_MAX)+10}" y="${plotToY(0)+4}" font-size="13" font-style="italic" text-anchor="start" fill="currentColor" opacity="0.85" font-family="'Space Grotesk', sans-serif">x</text>`;
+    html += `<text x="${plotToX(0)}" y="${plotToY(PLOT_GRID_MAX)-8}" font-size="13" font-style="italic" text-anchor="middle" fill="currentColor" opacity="0.85" font-family="'Space Grotesk', sans-serif">y</text>`;
+    g.innerHTML = html;
+  }
+
+  // Small static (non-interactive) grid diagram, used for questions referencing a shape/figure
+  function buildStaticDiagramSVG(points, labels){
+    let grid = '';
+    for(let i=-PLOT_GRID_MAX;i<=PLOT_GRID_MAX;i++){
+      grid += `<line x1="${plotToX(i)}" y1="${plotToY(-PLOT_GRID_MAX)}" x2="${plotToX(i)}" y2="${plotToY(PLOT_GRID_MAX)}" stroke="currentColor" stroke-width="1" opacity="0.08"/>`;
+      grid += `<line x1="${plotToX(-PLOT_GRID_MAX)}" y1="${plotToY(i)}" x2="${plotToX(PLOT_GRID_MAX)}" y2="${plotToY(i)}" stroke="currentColor" stroke-width="1" opacity="0.08"/>`;
+    }
+    grid += `<line x1="${plotToX(-PLOT_GRID_MAX)}" y1="${plotToY(0)}" x2="${plotToX(PLOT_GRID_MAX)}" y2="${plotToY(0)}" stroke="currentColor" stroke-width="1.4" opacity="0.6"/>`;
+    grid += `<line x1="${plotToX(0)}" y1="${plotToY(-PLOT_GRID_MAX)}" x2="${plotToX(0)}" y2="${plotToY(PLOT_GRID_MAX)}" stroke="currentColor" stroke-width="1.4" opacity="0.6"/>`;
+    const polyPoints = points.map(p => plotToX(p[0])+','+plotToY(p[1])).join(' ');
+    let shape = `<polygon points="${polyPoints}" fill="none" style="stroke:var(--mint)" stroke-width="2.4"/>`;
+    points.forEach((p,i) => {
+      shape += `<circle cx="${plotToX(p[0])}" cy="${plotToY(p[1])}" r="5" style="fill:var(--coral)"/>`;
+      shape += `<text x="${plotToX(p[0])+9}" y="${plotToY(p[1])-9}" font-size="13" font-family="monospace" fill="currentColor">${labels[i]}</text>`;
+    });
+    return `<div class="static-diagram"><svg viewBox="0 0 350 350">${grid}${shape}</svg></div>`;
+  }
+
+  function setupPlotQuestion(target){
+    buildGamePlotGrid();
+    const svg = document.getElementById('gamePlotSvg');
+    const dyn = document.getElementById('gamePlotDyn');
+    const statusEl = document.getElementById('gamePlotStatus');
+    let resolved = false;
+    svg.addEventListener('click', function onPlotClick(evt){
+      if(resolved) return;
+      const rect = svg.getBoundingClientRect();
+      const scaleX = 350/rect.width, scaleY = 350/rect.height;
+      const px = (evt.clientX - rect.left) * scaleX;
+      const py = (evt.clientY - rect.top) * scaleY;
+      const dist = Math.hypot(px - plotToX(target[0]), py - plotToY(target[1]));
+      const isCorrect = dist <= PLOT_TAP_TOLERANCE;
+      questionAttempts++;
+      if(isCorrect){
+        resolved = true;
+        svg.removeEventListener('click', onPlotClick);
+        dyn.innerHTML = `<circle cx="${plotToX(target[0])}" cy="${plotToY(target[1])}" r="7" style="fill:var(--mint)"/>`;
+        statusEl.textContent = '✓ Nice — right on target!';
+        registerAnswer(true);
+        return;
+      }
+      // wrong tap
+      if(questionAttempts >= MAX_ATTEMPTS){
+        resolved = true;
+        svg.removeEventListener('click', onPlotClick);
+        dyn.innerHTML = `<circle cx="${px}" cy="${py}" r="6" style="fill:var(--coral)" opacity="0.85"/>` +
+          `<circle cx="${plotToX(target[0])}" cy="${plotToY(target[1])}" r="7" style="fill:var(--mint)"/>`;
+        statusEl.textContent = 'Correct point shown in green.';
+        registerAnswer(false);
+      } else {
+        dyn.innerHTML = `<circle cx="${px}" cy="${py}" r="6" style="fill:var(--coral)" opacity="0.85"/>`;
+        const retry = document.getElementById('qRetry');
+        retry.textContent = '⚠️ Not quite — you have one more try.';
+        retry.classList.add('show');
+      }
+    });
+  }
+
+  function flash(kind){
+    const el = document.getElementById('flashOverlay');
+    el.className = 'flash-overlay ' + kind;
+    void el.offsetWidth;
+    el.className = 'flash-overlay ' + kind;
+  }
+
+  function registerAnswer(isCorrect){
+    clearInterval(questionTimerInterval);
+    document.getElementById('hudTimer').classList.remove('show');
+    document.getElementById('qRetry').classList.remove('show');
+    state.roundAnswers.push(isCorrect);
+    state.totalAnswered++;
+
+    // track skill performance for the end-of-game learning gaps report
+    const curQ = rounds[state.roundIdx].questions[state.qIdx];
+    if(curQ.skill){
+      if(!state.skillStats[curQ.skill]) state.skillStats[curQ.skill] = { attemptsList:[], wrongCount:0, total:0 };
+      const s = state.skillStats[curQ.skill];
+      s.total++;
+      s.attemptsList.push(questionAttempts);
+      if(!isCorrect) s.wrongCount++;
+    }
+
+    // send this attempt to the live class tracker (no-op if not configured)
+    logToClassTracker({
+      session: state.sessionCode,
+      student: state.teamName,
+      round: rounds[state.roundIdx].title,
+      skill: curQ.skill || '',
+      attempts: questionAttempts === 0 ? 'Timed out' : questionAttempts,
+      correct: isCorrect
+    });
+
+    if(isCorrect){
+      state.roundScore++;
+      state.totalCorrect++;
+      state.streak++;
+      if(state.streak > state.bestStreak) state.bestStreak = state.streak;
+      flash('good');
+      viewerJump(Math.floor(Math.random()*20)+10);
+      if(state.streak >= 2) showStreakToast(state.streak);
+    } else {
+      state.streak = 0;
+      flash('bad');
+    }
+    document.getElementById('qExplain').classList.add('show');
+    document.getElementById('qNextBtn').classList.add('show');
+    saveGameProgress(); // checkpoint after every question, not just at round boundaries
+  }
+
+  function answerMCQ(idx){
+    const btns = document.querySelectorAll('#qBody .q-opt');
+    const clickedBtn = btns[idx];
+    if(clickedBtn.disabled) return;
+    const isCorrect = currentShuffledOptions[idx].isCorrect;
+    questionAttempts++;
+    if(isCorrect){
+      btns.forEach(b => b.disabled = true);
+      clickedBtn.classList.add('correct');
+      registerAnswer(true);
+      return;
+    }
+    // wrong answer
+    clickedBtn.classList.add('wrong');
+    clickedBtn.disabled = true;
+    if(questionAttempts >= MAX_ATTEMPTS){
+      btns.forEach(b => b.disabled = true);
+      const correctIdx = currentShuffledOptions.findIndex(o => o.isCorrect);
+      btns[correctIdx].classList.add('correct');
+      registerAnswer(false);
+    } else {
+      const retry = document.getElementById('qRetry');
+      retry.textContent = '⚠️ Not quite — you have one more try.';
+      retry.classList.add('show');
+    }
+  }
+
+  function answerNumeric(){
+    const round = rounds[state.roundIdx];
+    const q = round.questions[state.qIdx];
+    const inp = document.getElementById('numInput');
+    if(!inp || inp.disabled) return;
+    const raw = (inp.value||'').trim();
+    if(raw === ''){
+      document.getElementById('qWarning').classList.add('show');
+      inp.focus();
+      return;
+    }
+    document.getElementById('qWarning').classList.remove('show');
+    const val = parseFloat(raw.replace(/[^0-9.\-]/g,''));
+    const isCorrect = !isNaN(val) && Math.abs(val - q.answer) <= Math.max(0.02, Math.abs(q.answer)*0.01);
+    questionAttempts++;
+    if(isCorrect){
+      inp.disabled = true;
+      document.querySelector('.q-submit').disabled = true;
+      inp.style.borderColor = 'var(--mint)';
+      registerAnswer(true);
+      return;
+    }
+    if(questionAttempts >= MAX_ATTEMPTS){
+      inp.disabled = true;
+      document.querySelector('.q-submit').disabled = true;
+      inp.style.borderColor = 'var(--coral)';
+      registerAnswer(false);
+    } else {
+      inp.style.borderColor = 'var(--coral)';
+      const retry = document.getElementById('qRetry');
+      retry.textContent = '⚠️ Not quite — you have one more try.';
+      retry.classList.add('show');
+      inp.select();
+      inp.focus();
+    }
+  }
+
+  function timeOutCurrentQuestion(){
+    // ran out of time before answering — count as wrong, still let them read the explanation
+    const round = rounds[state.roundIdx];
+    const q = round.questions[state.qIdx];
+    if(q.type === 'mcq'){
+      const btns = document.querySelectorAll('#qBody .q-opt');
+      btns.forEach(b => b.disabled = true);
+      const correctIdx = currentShuffledOptions.findIndex(o => o.isCorrect);
+      if(btns[correctIdx]) btns[correctIdx].classList.add('correct');
+    } else if(q.type === 'plot'){
+      const svg = document.getElementById('gamePlotSvg');
+      const statusEl = document.getElementById('gamePlotStatus');
+      if(svg){
+        const clone = svg.cloneNode(true); // strips the old click listener
+        svg.parentNode.replaceChild(clone, svg);
+      }
+      const dyn = document.getElementById('gamePlotDyn'); // re-query after clone/replace
+      if(dyn) dyn.innerHTML = `<circle cx="${plotToX(q.target[0])}" cy="${plotToY(q.target[1])}" r="7" style="fill:var(--mint)"/>`;
+      if(statusEl) statusEl.textContent = "Time's up — correct point shown in green.";
+    } else {
+      const inp = document.getElementById('numInput');
+      if(inp) inp.disabled = true;
+      const submitBtn = document.querySelector('.q-submit');
+      if(submitBtn) submitBtn.disabled = true;
+    }
+    registerAnswer(false);
+  }
+
+  function toggleGameHint(){
+    document.getElementById('qHintBox').classList.toggle('show');
+  }
+
+  function goToNextQuestion(){
+    state.qIdx++;
+    renderQuestion();
+  }
+
+  function showStreakToast(n){
+    const t = document.getElementById('streakToast');
+    t.textContent = '🔥 Streak x' + n + '!';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1100);
+  }
+
+  // ============ Round result ============
+  function simulateRivalScore(n){
+    let score = 0;
+    for(let i=0;i<n;i++){ if(Math.random() < 0.58) score++; }
+    return score;
+  }
+  function endRound(){
+    clearInterval(questionTimerInterval);
+    document.getElementById('hudTimer').classList.remove('show');
+    const round = rounds[state.roundIdx];
+    const qCount = round.questions.length;
+    const rivalScore = simulateRivalScore(qCount);
+    document.getElementById('roundResultTitle').textContent = 'Round ' + (state.roundIdx+1) + ': ' + round.title;
+    document.getElementById('numYou').textContent = state.roundScore + '/' + qCount;
+    document.getElementById('numRival').textContent = rivalScore + '/' + qCount;
+    const barYou = document.getElementById('barYou'), barRival = document.getElementById('barRival');
+    barYou.style.width = '0%'; barRival.style.width = '0%';
+    goTo('scr-round-result');
+    setTimeout(() => {
+      barYou.style.width = (state.roundScore/qCount*100) + '%';
+      barRival.style.width = (rivalScore/qCount*100) + '%';
+    }, 120);
+
+    const banner = document.getElementById('roundWinnerBanner');
+    if(state.roundScore > rivalScore){
+      state.winsYou++;
+      banner.textContent = state.teamName.toUpperCase() + ' WINS THE ROUND! 🎉';
+      banner.className = 'round-winner-banner you';
+      viewerJump(150);
+      spawnConfetti(['🎉','🔥','✨','💚']);
+    } else if(rivalScore > state.roundScore){
+      state.winsRival++;
+      banner.textContent = 'Team Vertex takes it 😬';
+      banner.className = 'round-winner-banner rival';
+      viewerJump(60);
+    } else {
+      // sudden viewer vote tie-break
+      if(Math.random() < 0.5){ state.winsYou++; banner.textContent = 'TIE! Viewer vote goes to ' + state.teamName + ' 🎉'; banner.className='round-winner-banner you'; spawnConfetti(['🎉','✨']); }
+      else { state.winsRival++; banner.textContent = 'TIE! Viewer vote goes to Vertex 😬'; banner.className='round-winner-banner rival'; }
+      viewerJump(100);
+    }
+    updateTally();
+    const dot = document.getElementById('rdot-' + state.roundIdx);
+    dot.className = 'round-dot ' + (state.roundScore > rivalScore ? 'you' : (rivalScore > state.roundScore ? 'rival' : (banner.classList.contains('you') ? 'you' : 'rival')));
+    state.roundHistory.push({
+      title: round.title, yourScore: state.roundScore, rivalScore: rivalScore, total: qCount,
+      won: state.roundScore > rivalScore || (state.roundScore === rivalScore && banner.classList.contains('you'))
+    });
+  }
+
+  function afterRoundResult(){
+    if(state.roundIdx >= rounds.length - 1){
+      showOfferScreen();
+    } else {
+      state.roundIdx++;
+      state.qIdx = 0; state.roundScore = 0; state.roundAnswers = [];
+      saveGameProgress();
+      showRoundIntro();
+    }
+  }
+
+  // ============ Confetti ============
+  function spawnConfetti(emojis){
+    const layer = document.getElementById('confettiLayer');
+    for(let i=0;i<24;i++){
+      const span = document.createElement('span');
+      span.className = 'confetti-piece';
+      span.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+      span.style.left = (Math.random()*100) + 'vw';
+      span.style.animationDuration = (1.6 + Math.random()*1.2) + 's';
+      span.style.fontSize = (1 + Math.random()*0.8) + 'rem';
+      layer.appendChild(span);
+      setTimeout(() => { if(span.parentNode) span.parentNode.removeChild(span); }, 3200);
+    }
+  }
+
+  function escapeHtml(s){
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function computeRankTier(){
+    const won = state.winsYou > state.winsRival;
+    const accuracy = state.totalAnswered ? state.totalCorrect / state.totalAnswered : 0;
+    let rank, color, icon, high;
+    if(state.winsYou >= 4 && accuracy >= 0.7){ rank = 'WENT VIRAL 🔥'; color = '#FFB627'; icon = '🔥'; high = true; }
+    else if(won){ rank = 'TRENDING 📈'; color = '#15B294'; icon = '📈'; high = true; }
+    else if(accuracy >= 0.6){ rank = 'RISING STAR 🌱'; color = '#7A6FF0'; icon = '🌱'; high = false; }
+    else { rank = 'KEEP POSTING 🎬'; color = '#FF6552'; icon = '🎬'; high = false; }
+    return { rank, color, icon, high, won, accuracy };
+  }
+
+  // ============ Offer / contract twist ============
+  function showOfferScreen(){
+    const tier = computeRankTier();
+    state.rankTier = tier;
+    clearGameProgress(); // match's core play is over — nothing left to resume mid-round
+    const eyebrow = document.getElementById('offerEyebrow');
+    const headline = document.getElementById('offerHeadline');
+    const body = document.getElementById('offerBody');
+    const name = escapeHtml(state.teamName);
+    if(tier.high){
+      eyebrow.textContent = '📩 Incoming DM — StreamCore Studios';
+      headline.textContent = 'A talent scout just messaged you live!';
+      body.innerHTML = '<span class="story-tag">Breaking</span>' + name + ', someone from <strong>StreamCore Studios</strong> caught your stream and loved it. They\'re offering you a spot as an official, permanent StreamCore streamer — <strong>$100,000</strong>, signed today.';
+    } else {
+      eyebrow.textContent = '📩 Challenge received';
+      headline.textContent = 'Another streamer wants a rematch';
+      body.innerHTML = '<span class="story-tag">Breaking</span>' + name + ', a streamer going by <strong>ProGradient_99</strong> just challenged you to an exclusive 1-on-1 rematch. Winner gets signed by <strong>StreamCore Studios</strong> for a <strong>$100,000</strong> deal.';
+    }
+    goTo('scr-offer');
+  }
+
+  function toggleContractAccept(){
+    const cb = document.getElementById('contractCheckbox');
+    const btn = document.getElementById('contractAcceptBtn');
+    btn.disabled = !cb.checked;
+  }
+  function acceptContract(){
+    state.scammed = true;
+    goTo('scr-reveal');
+  }
+  function declineContract(){
+    state.scammed = false;
+    goTo('scr-safe');
+  }
+
+  // ============ Learning Gaps report ============
+  const skillContent = {
+    'cart': {
+      title: 'Coordinates &amp; Quadrants',
+      definition: 'The origin (0, 0) is where the axes cross. An ordered pair (x, y) tells you how far left/right and up/down from there. The 4 quadrants each have their own sign pattern: I (+,+), II (−,+), III (−,−), IV (+,−).',
+      workedPrompt: 'Which quadrant is the point (−5, 4) in?',
+      workedSteps: 'x = −5 → negative\ny = 4 → positive\n(−, +) is Quadrant II',
+      practiceType: 'mcq',
+      practicePrompt: 'Which quadrant is the point (3, −7) in?',
+      practiceOptions: ['Quadrant I','Quadrant II','Quadrant III','Quadrant IV'],
+      practiceCorrect: 3,
+      deckPointer: 'Revisit Section A\'s flip cards and coloured quadrant grid in the Learning Deck (Part 1A).'
+    },
+    'coordx': {
+      title: 'Plotting &amp; Reading Individual Points',
+      definition: 'To plot or read any single point, count how far it has moved left/right from the origin for x, then up/down for y — same process either direction.',
+      workedPrompt: 'State the coordinates of a point that is 5 left and 2 down from the origin.',
+      workedSteps: '5 left → x = −5\n2 down → y = −2\nCoordinates: (−5, −2)',
+      practiceType: 'mcq',
+      practicePrompt: 'State the coordinates of a point that is 6 right and 1 down from the origin.',
+      practiceOptions: ['(6, −1)','(−6, 1)','(1, −6)','(6, 1)'],
+      practiceCorrect: 0,
+      deckPointer: 'Revisit Section A\'s "Plot &amp; Read" activity in the Learning Deck (Part 1A).'
+    },
+    'hunt': {
+      title: 'Reading Coordinates in Context',
+      definition: 'Whether it\'s a stall on a themed grid or any labelled point, the same rule applies every time: count across from the origin first, then up or down.',
+      workedPrompt: 'A stall is 4 units left and 3 units up from the entrance. What are its coordinates?',
+      workedSteps: '4 left → x = −4\n3 up → y = 3\nCoordinates: (−4, 3)',
+      practiceType: 'mcq',
+      practicePrompt: 'A stall is 5 units right and 2 units up from the entrance. What are its coordinates?',
+      practiceOptions: ['(5, 2)','(2, 5)','(−5, 2)','(5, −2)'],
+      practiceCorrect: 0,
+      deckPointer: 'Revisit the Coordinate Hunt activity in the Learning Deck (Part 1A).'
+    },
+    'plotb': {
+      title: 'Plotting a Linear Relation',
+      definition: 'Points from the same linear relation always line up into a perfectly straight line once plotted and joined. If a point doesn\'t fit that line, it\'s almost always a plotting mistake.',
+      workedPrompt: 'Points (−2, −4), (0, 0), (1, 2) come from the same linear relation. Do they line up into a straight line?',
+      workedSteps: 'Plot each point, then check: does y increase by the same amount every time x increases by 1?\nFrom (−2,−4) to (0,0): x up 2, y up 4.\nFrom (0,0) to (1,2): x up 1, y up 2.\nSame rate both times — yes, they line up.',
+      practiceType: 'mcq',
+      practicePrompt: 'Points (−1, 5), (0, 3), (2, −1) come from the same linear relation. Which way does the line slope, left to right?',
+      practiceOptions: ['Downward','Upward','Flat','Can\'t tell'],
+      practiceCorrect: 0,
+      deckPointer: 'Revisit Section B\'s plotting activity in the Learning Deck (Part 1A).'
+    }
+  };
+
+  function isSkillGap(stats){
+    return stats.wrongCount > 0 || stats.attemptsList.some(a => a >= 2);
+  }
+
+  const gapAttempts = {};
+  function checkGapMCQ(key, idx, correctIdx){
+    gapAttempts[key] = (gapAttempts[key]||0) + 1;
+    const row = document.getElementById('gap-opts-'+key);
+    const btns = row.querySelectorAll('.opt-btn');
+    const fb = document.getElementById('gap-fb-'+key);
+    if(btns[idx].disabled) return;
+    if(idx === correctIdx){
+      btns.forEach(b=>b.disabled=true);
+      btns[idx].classList.add('correct');
+      fb.textContent = '✓ Correct!';
+      fb.className = 'try-feedback good';
+    } else {
+      btns[idx].classList.add('wrong');
+      btns[idx].disabled = true;
+      if(gapAttempts[key] >= 2){
+        btns.forEach(b=>b.disabled=true);
+        btns[correctIdx].classList.add('correct');
+        fb.textContent = 'The correct answer is highlighted above — check the worked example if you\'re still unsure.';
+        fb.className = 'try-feedback bad';
+      } else {
+        fb.textContent = 'Not quite — you have one more try.';
+        fb.className = 'try-feedback bad';
+      }
+    }
+  }
+  function checkGapNumeric(key, inputId, answer){
+    gapAttempts[key] = (gapAttempts[key]||0) + 1;
+    const inp = document.getElementById(inputId);
+    const fb = document.getElementById('gap-fb-'+key);
+    const val = parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''));
+    if(!isNaN(val) && Math.abs(val-answer) <= 0.02){
+      inp.disabled = true;
+      fb.textContent = '✓ Correct!';
+      fb.className = 'try-feedback good';
+    } else {
+      if(gapAttempts[key] >= 2){
+        inp.disabled = true;
+        fb.textContent = 'The answer is ' + answer + ' — check the worked example above and see where your working differs.';
+        fb.className = 'try-feedback bad';
+      } else {
+        fb.textContent = 'Not quite — you have one more try.';
+        fb.className = 'try-feedback bad';
+        inp.select(); inp.focus();
+      }
+    }
+  }
+
+  function buildGapCard(key, content, stats){
+    const tagText = stats.wrongCount > 0 ? 'Got this wrong' : 'Needed 2 attempts';
+    let practiceHtml;
+    if(content.practiceType === 'mcq'){
+      practiceHtml = `<div class="try-row" id="gap-opts-${key}">` +
+        content.practiceOptions.map((opt,i) => `<button class="opt-btn" onclick="checkGapMCQ('${key}', ${i}, ${content.practiceCorrect})">${opt}</button>`).join('') +
+        `</div>`;
+    } else {
+      practiceHtml = `<div class="try-row">
+        <input type="text" inputmode="decimal" id="gap-input-${key}" placeholder="answer">
+        <button class="try-btn" onclick="checkGapNumeric('${key}', 'gap-input-${key}', ${content.practiceAnswer})">Check</button>
+      </div>`;
+    }
+    return `<div class="gap-card">
+      <div class="gap-title">📌 ${content.title}</div>
+      <span class="gap-tag">${tagText}</span>
+      <div class="gap-recap-block">
+        <div class="gap-recap-label">What this means</div>
+        <div class="gap-recap-body">${content.definition}</div>
+      </div>
+      <div class="gap-recap-block">
+        <div class="gap-recap-label">Worked example</div>
+        <div class="gap-recap-body">${content.workedPrompt}</div>
+        <div class="worked-steps-gap">${content.workedSteps}</div>
+      </div>
+      <div class="try-block">
+        <div class="try-label">💭 Try it yourself</div>
+        <div class="try-prompt">${content.practicePrompt}</div>
+        ${practiceHtml}
+        <div class="try-feedback" id="gap-fb-${key}"></div>
+      </div>
+      <div class="gap-deck-pointer"><span>📖</span> <span>Still unsure? ${content.deckPointer}</span></div>
+    </div>`;
+  }
+
+  function renderGapsScreen(){
+    const container = document.getElementById('gapsContainer');
+    const strongEl = document.getElementById('gapsStrong');
+    let gapsHtml = '';
+    const strongTitles = [];
+    Object.keys(skillContent).forEach(key => {
+      const content = skillContent[key];
+      const stats = state.skillStats[key];
+      if(!stats) return;
+      if(isSkillGap(stats)){
+        gapsHtml += buildGapCard(key, content, stats);
+      } else {
+        strongTitles.push(content.title.replace(/&amp;/g, '&'));
+      }
+    });
+    container.innerHTML = gapsHtml || '<p style="opacity:0.85; text-align:center;">No learning gaps found — excellent work across every skill this round! 🎉</p>';
+    strongEl.innerHTML = strongTitles.length ? `✅ <strong>No gaps found in:</strong> ${strongTitles.join(', ')}. Solid work there — no need to recap those.` : '';
+  }
+
+  function goToGapsScreen(){
+    renderGapsScreen();
+    goTo('scr-gaps');
+  }
+
+  // ============ Final ============
+  function showFinal(){
+    goTo('scr-final');
+    const tier = state.rankTier || computeRankTier();
+    const won = tier.won, accuracy = tier.accuracy;
+    if(state.scammed === true){
+      document.getElementById('finalHeadline').textContent = 'Stream Ended — But Your Account Was Compromised ⚠️';
+    } else {
+      document.getElementById('finalHeadline').textContent = won ? state.teamName.toUpperCase() + ' WON THE STREAM! 🏆' : 'Stream Ended — Good Battle 🎬';
+    }
+    document.getElementById('badgeTeamName').textContent = state.teamName;
+    document.getElementById('rankSub').textContent = state.teamName + ' ' + state.winsYou + ' — ' + state.winsRival + ' Team Vertex';
+    document.getElementById('statViews').textContent = fmtViewers(state.peakViewers);
+    document.getElementById('statCorrect').textContent = state.totalCorrect + '/' + state.totalAnswered;
+    document.getElementById('statStreak').textContent = state.bestStreak;
+
+    const breakdownEl = document.getElementById('roundBreakdown');
+    breakdownEl.innerHTML = '<div class="rb-title">Round by round</div>' + state.roundHistory.map((r, i) =>
+      `<div class="rb-row"><span class="rb-dot ${r.won ? 'you' : 'rival'}"></span>` +
+      `<span class="rb-title-text">Round ${i+1}: ${r.title}</span>` +
+      `<span class="rb-score">${r.yourScore}–${r.rivalScore}</span></div>`
+    ).join('');
+
+    document.getElementById('rankTitle').textContent = tier.rank;
+    document.getElementById('badgeIcon').textContent = tier.icon;
+
+    const svg = document.getElementById('badgeSvg');
+    svg.innerHTML = `
+      <polygon points="85,100 58,205 85,178 112,205" fill="${tier.color}" opacity="0.55"/>
+      <circle cx="85" cy="80" r="65" fill="${tier.color}"/>
+      <circle cx="85" cy="80" r="65" fill="none" stroke="#15172B" stroke-width="4" opacity="0.15"/>
+      <circle cx="85" cy="80" r="48" fill="none" stroke="#FBF8F1" stroke-width="3" opacity="0.85" stroke-dasharray="4,4"/>
+      <text x="85" y="75" font-size="26" text-anchor="middle" font-family="'Space Grotesk', sans-serif" font-weight="800" fill="#15172B">${state.winsYou}-${state.winsRival}</text>
+      <text x="85" y="98" font-size="10" text-anchor="middle" font-family="'JetBrains Mono', monospace" fill="#15172B" opacity="0.7">FINAL SCORE</text>
+    `;
+
+    const badgeWrap = document.getElementById('badgeWrap');
+    const phishingBox = document.getElementById('phishingAlertBox');
+    const scamSpottedNote = document.getElementById('scamSpottedNote');
+    if(state.scammed === true){
+      badgeWrap.classList.add('scammed');
+      phishingBox.style.display = 'block';
+      scamSpottedNote.style.display = 'none';
+    } else if(state.scammed === false){
+      badgeWrap.classList.remove('scammed');
+      phishingBox.style.display = 'none';
+      scamSpottedNote.style.display = 'block';
+      if(won) spawnConfetti(['🏆','🎉','🔥','✨','💚']);
+    } else {
+      badgeWrap.classList.remove('scammed');
+      phishingBox.style.display = 'none';
+      scamSpottedNote.style.display = 'none';
+      if(won) spawnConfetti(['🏆','🎉','🔥','✨','💚']);
+    }
+  }
+
+  // ---------- Laser pointer ----------
+  (function(){
+    let active = false;
+    const dot = document.getElementById('laserDot');
+    const toggle = document.getElementById('laserToggle');
+    toggle.addEventListener('click', () => {
+      active = !active;
+      toggle.classList.toggle('active', active);
+      dot.style.display = active ? 'block' : 'none';
+    });
+    function moveDot(x, y){ dot.style.left = x + 'px'; dot.style.top = y + 'px'; }
+    document.addEventListener('mousemove', e => { if(active) moveDot(e.clientX, e.clientY); });
+    document.addEventListener('touchmove', e => {
+      if(active && e.touches[0]){
+        e.preventDefault(); // stop the page itself from scrolling while the laser is on
+        moveDot(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, {passive:false});
+  })();
+
+  // ---------- Math symbol toolbar ----------
+  (function(){
+    const symbols = ['−','+','×','÷','=','(',')','²','³','√','π','/','°','≤','≥','≠','∞'];
+    const bar = document.getElementById('mathToolbar');
+    symbols.forEach(sym => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = sym;
+      btn.addEventListener('click', () => insertSymbol(sym));
+      bar.appendChild(btn);
+    });
+    let lastFocusedInput = null;
+    document.addEventListener('focusin', e => {
+      if(e.target.tagName === 'INPUT' && e.target.type === 'text') lastFocusedInput = e.target;
+    });
+    function insertSymbol(sym){
+      if(!lastFocusedInput || lastFocusedInput.disabled) return;
+      const el = lastFocusedInput;
+      const start = el.selectionStart != null ? el.selectionStart : el.value.length;
+      const end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+      el.value = el.value.slice(0, start) + sym + el.value.slice(end);
+      const pos = start + sym.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    }
+  })();
+</script>
+</body>
+</html>
